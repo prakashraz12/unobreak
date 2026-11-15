@@ -383,6 +383,8 @@ describe('uno and winning', () => {
     expect(r.ok).toBe(true);
     if (!r.ok) return;
     expect(r.state.players[0]!.hand).toHaveLength(1);
+    expect(r.events).toContainEqual({ type: 'unoCalled', playerId: 'a' });
+    expect(r.events.some((e) => e.type === 'unoPenalty')).toBe(false);
   });
 
   it('finishes the game on an empty hand and rejects further actions', () => {

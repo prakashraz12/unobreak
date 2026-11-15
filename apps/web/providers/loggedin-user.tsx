@@ -10,6 +10,7 @@ import type { User } from '../services/types-schemas';
 import FullScreenLoader from '../components/full-screen-loader';
 import { usePopUpToaster } from '../components/pop-up-toaster';
 import FriendRequestProvider from './friend-request-provider';
+import MatchInviteProvider from './match-invite-provider';
 
 interface LoggedInUserContextValue {
   user: User;
@@ -49,7 +50,9 @@ export const LoggedInUserProvider = ({ children }: { children: ReactNode }) => {
         token={accessToken}
       >
         <RealtimeNotifications />
-        <FriendRequestProvider>{children}</FriendRequestProvider>
+        <FriendRequestProvider>
+          <MatchInviteProvider>{children}</MatchInviteProvider>
+        </FriendRequestProvider>
       </SocketProvider>
     </LoggedInUserContext.Provider>
   );

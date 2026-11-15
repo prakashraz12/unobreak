@@ -12,6 +12,7 @@ import UserAvatar from '../../../avatars/user-avatar';
 import { AVATARS } from '../../../avatars/presets';
 import MatchmakingScreen from '../../game-ui/matchmaking-screen';
 import useSoloMatch from '../solo-player/use-solo-match';
+import useInviteCooldown from '../../../../hooks/use-invite-cooldown';
 
 const ACK_TIMEOUT_MS = 10_000;
 
@@ -41,6 +42,7 @@ const Team2v2Matchmaking = ({
     joinMatchId !== undefined,
   );
   const [invitedIds, setInvitedIds] = useState<ReadonlySet<number>>(new Set());
+  const { secondsLeft, startCooldown } = useInviteCooldown();
   const [deadlineAt, setDeadlineAt] = useState<number | null>(null);
   const [pickerOpen, setPickerOpen] = useState(false);
   const [starting, setStarting] = useState<number | null>(null);
@@ -87,6 +89,7 @@ const Team2v2Matchmaking = ({
         .timeout(ACK_TIMEOUT_MS)
         .emitWithAck('match:invite', { matchId: id, userId });
       setInvitedIds((prev) => new Set(prev).add(userId));
+      startCooldown(userId);
     } catch (err) {
       const message =
         err instanceof Error && err.message
@@ -203,6 +206,7 @@ const Team2v2Matchmaking = ({
                 ) : (
                   friends.map((f) => {
                     const invited = invitedIds.has(f.user.userId);
+                    const cooling = secondsLeft(f.user.userId);
                     const joined = opponents.some(
                       (p) => p.userId === f.user.userId,
                     );
@@ -235,11 +239,22 @@ const Team2v2Matchmaking = ({
                         </div>
                         <button
                           type="button"
-                          disabled={invited || joined || !online || slotTaken}
+                          disabled={
+                            cooling > 0 ||
+                            joined ||
+                            !online ||
+                            (slotTaken && !invited)
+                          }
                           onClick={() => void invite(f.user.userId)}
                           className="shrink-0 cursor-pointer rounded-lg border-2 border-[#14540f] bg-linear-to-b from-[#7be05a] to-[#2fa52a] px-3 py-1.5 text-[10px] font-black uppercase italic tracking-wide text-white shadow-[0_2px_0_#14540f] [-webkit-text-stroke:2px_#14540f] [paint-order:stroke_fill] transition-transform hover:scale-[1.04] active:translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-50 disabled:grayscale"
                         >
-                          {joined ? 'Joined' : invited ? 'Invited' : 'Invite'}
+                          {joined
+                            ? 'Joined'
+                            : cooling > 0
+                              ? `Invited ${cooling}s`
+                              : invited
+                                ? 'Invite again'
+                                : 'Invite'}
                         </button>
                       </div>
                     );

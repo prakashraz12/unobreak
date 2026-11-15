@@ -31,9 +31,17 @@ const useBotDemo = (humanAvatarId = 0) => {
   const humanId = SEAT_IDS[0];
   const [state, setState] = useState<GameState>(newGame);
   const [unoCalled, setUnoCalled] = useState(false);
+  const [unoCall, setUnoCall] = useState<{
+    playerId: string;
+    key: number;
+  } | null>(null);
   const [colorPick, setColorPick] = useState<{
     playerId: string;
     color: Color;
+    key: number;
+  } | null>(null);
+  const [cardEffect, setCardEffect] = useState<{
+    value: 'skip' | 'draw2' | 'wild4';
     key: number;
   } | null>(null);
 
@@ -50,8 +58,23 @@ const useBotDemo = (humanAvatarId = 0) => {
   );
 
   const announce = useCallback(
-    (events: { type: string; playerId?: string; chosenColor?: Color }[]) => {
+    (
+      events: {
+        type: string;
+        playerId?: string;
+        chosenColor?: Color;
+        card?: { value: string };
+      }[],
+    ) => {
       for (const event of events) {
+        const value =
+          event.type === 'cardPlayed' ? event.card?.value : undefined;
+        if (value === 'skip' || value === 'draw2' || value === 'wild4') {
+          setCardEffect({ value, key: Date.now() });
+        }
+        if (event.type === 'unoCalled') {
+          setUnoCall({ playerId: event.playerId!, key: Date.now() });
+        }
         if (event.type === 'cardPlayed' && event.chosenColor !== undefined) {
           const key = Date.now();
           setColorPick({
@@ -126,6 +149,10 @@ const useBotDemo = (humanAvatarId = 0) => {
     canChallenge: false,
     unoCalled,
     colorPick,
+    unoCall,
+    chat: null,
+    sendChat: () => {},
+    cardEffect,
     play: () => false,
     draw: () => apply({ type: 'draw', playerId: humanId }),
     pass: () => apply({ type: 'pass', playerId: humanId }),

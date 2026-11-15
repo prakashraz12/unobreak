@@ -145,6 +145,10 @@ export type Friendship = {
 export type FriendEntryDto = {
   friendshipId: number;
   user: User;
+  /**
+   * Messages from this friend I haven't read yet.
+   */
+  unreadCount: number;
 };
 
 export type FriendRequestsDto = {

@@ -151,18 +151,36 @@ export class FriendService {
   /** Accepted friends: returns the other user per friendship. */
   async listFriends(
     userPk: number,
-  ): Promise<{ friendshipId: number; user: User }[]> {
-    const rows = await this.friendships
-      .createQueryBuilder('f')
-      .innerJoinAndSelect('f.requester', 'req')
-      .innerJoinAndSelect('f.addressee', 'addr')
-      .where('f.status = :status', { status: FriendshipStatus.ACCEPTED })
-      .andWhere('(req.id = :me OR addr.id = :me)', { me: userPk })
-      .getMany();
-    return rows.map((f) => ({
-      friendshipId: f.id,
-      user: f.requester.id === userPk ? f.addressee : f.requester,
-    }));
+  ): Promise<{ friendshipId: number; user: User; unreadCount: number }[]> {
+    const [rows, unread] = await Promise.all([
+      this.friendships
+        .createQueryBuilder('f')
+        .innerJoinAndSelect('f.requester', 'req')
+        .innerJoinAndSelect('f.addressee', 'addr')
+        .where('f.status = :status', { status: FriendshipStatus.ACCEPTED })
+        .andWhere('(req.id = :me OR addr.id = :me)', { me: userPk })
+        .getMany(),
+      this.messages
+        .createQueryBuilder('m')
+        .select('"m"."senderId"', 'senderId')
+        .addSelect('COUNT(*)', 'count')
+        .where('"m"."recipientId" = :me AND "m"."readAt" IS NULL', {
+          me: userPk,
+        })
+        .groupBy('"m"."senderId"')
+        .getRawMany<{ senderId: number; count: string }>(),
+    ]);
+    const unreadBy = new Map(
+      unread.map((u) => [Number(u.senderId), Number(u.count)]),
+    );
+    return rows.map((f) => {
+      const user = f.requester.id === userPk ? f.addressee : f.requester;
+      return {
+        friendshipId: f.id,
+        user,
+        unreadCount: unreadBy.get(user.id) ?? 0,
+      };
+    });
   }
 
   /** Two users are friends iff an ACCEPTED friendship exists either way. */
@@ -203,6 +221,8 @@ export class FriendService {
     const saved = await this.messages.save(
       this.messages.create({ sender, recipient, text: trimmed }),
     );
+    // Replying means the sender has seen the thread.
+    await this.markRead(senderPk, recipient.id);
     this.realtime.toUserIfOnline(recipient.id, 'chat:message', {
       id: saved.id,
       text: saved.text,
@@ -236,18 +256,7 @@ export class FriendService {
       .take(HISTORY_PAGE_SIZE)
       .getMany();
     // Reading the conversation marks their messages to me as read.
-    await this.messages
-      .createQueryBuilder()
-      .update(ChatMessage)
-      .set({ readAt: new Date() })
-      .where(
-        '"senderId" = :them AND "recipientId" = :me AND "readAt" IS NULL',
-        {
-          me: userPk,
-          them: friend.id,
-        },
-      )
-      .execute();
+    await this.markRead(userPk, friend.id);
     return rows.reverse().map((m) => ({
       id: m.id,
       text: m.text,
@@ -275,5 +284,24 @@ export class FriendService {
       incoming: rows.filter((f) => f.addressee.id === userPk),
       outgoing: rows.filter((f) => f.requester.id === userPk),
     };
+  }
+
+  /** Mark a friend's messages to me as read (chat open / reply). */
+  async markReadFrom(userPk: number, friendUserId: number): Promise<void> {
+    const friend = await this.users.findOneBy({ userId: friendUserId });
+    if (!friend) throw new NotFoundException('User not found');
+    await this.markRead(userPk, friend.id);
+  }
+
+  private async markRead(mePk: number, themPk: number): Promise<void> {
+    await this.messages
+      .createQueryBuilder()
+      .update(ChatMessage)
+      .set({ readAt: new Date() })
+      .where(
+        '"senderId" = :them AND "recipientId" = :me AND "readAt" IS NULL',
+        { me: mePk, them: themPk },
+      )
+      .execute();
   }
 }

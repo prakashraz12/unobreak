@@ -42,8 +42,43 @@ interface VersusScreenProps {
   onDone: () => void;
 }
 
-const VersusScreen = ({ you, bots, onDone }: VersusScreenProps) => {
+const PANELS = [
+  ['#f23d72', '#e0245e'],
+  ['#2e9be8', '#1a7fd4'],
+  ['#4cc93f', '#2fa52a'],
+  ['#ffc21f', '#f59e0b'],
+] as const;
+
+const SLANT = 6;
+
+const VsBadge = ({ delay }: { delay: number }) => {
   const reducedMotion = useReducedMotion();
+  return (
+    <motion.div
+      className="relative flex items-start justify-center"
+      initial={reducedMotion ? undefined : { scale: 0, rotate: -18 }}
+      animate={{ scale: 1, rotate: 0 }}
+      transition={{ type: 'spring', stiffness: 240, damping: 13, delay }}
+    >
+      <div className="absolute left-1/2 top-1/2 -z-10 size-[18vmin] -translate-x-1/2 -translate-y-1/2 rounded-full bg-white/70 blur-2xl" />
+      <span className="bg-linear-to-b from-[#ffd61f] via-[#ff8a1a] to-[#e6392e] bg-clip-text font-display text-[clamp(44px,8vw,96px)] leading-none font-black italic text-transparent [-webkit-text-stroke:4px_#fff] drop-shadow-[0_5px_0_rgba(0,0,0,0.22)]">
+        V
+      </span>
+      <span className="-ml-2 mt-[0.45em] bg-linear-to-b from-[#b5ecff] via-[#3fbdf5] to-[#0d8bd4] bg-clip-text font-display text-[clamp(44px,8vw,96px)] leading-none font-black italic text-transparent [-webkit-text-stroke:4px_#fff] drop-shadow-[0_5px_0_rgba(0,0,0,0.22)]">
+        S
+      </span>
+    </motion.div>
+  );
+};
+
+const VersusScreen = ({ you, bots, onDone }: VersusScreenProps) => {
+  const fighters = [you, ...bots];
+  const count = fighters.length;
+  const width = 100 / count;
+  const seam = (k: number) =>
+    k === 0 || k === count
+      ? { top: k * width, bottom: k * width }
+      : { top: k * width + SLANT, bottom: k * width - SLANT };
 
   useEffect(() => {
     const t = setTimeout(onDone, VS_DURATION);
@@ -59,69 +94,84 @@ const VersusScreen = ({ you, bots, onDone }: VersusScreenProps) => {
         aria-hidden="true"
       >
         <defs>
-          <linearGradient id="vs-pink" x1="0" y1="0" x2="1" y2="1">
-            <stop offset="0%" stopColor="#f23d72" />
-            <stop offset="100%" stopColor="#e0245e" />
-          </linearGradient>
-          <linearGradient id="vs-blue" x1="0" y1="0" x2="1" y2="1">
-            <stop offset="0%" stopColor="#2e9be8" />
-            <stop offset="100%" stopColor="#1a7fd4" />
-          </linearGradient>
+          {PANELS.map(([from, to], i) => (
+            <linearGradient
+              key={i}
+              id={`vs-panel-${i}`}
+              x1="0"
+              y1="0"
+              x2="1"
+              y2="1"
+            >
+              <stop offset="0%" stopColor={from} />
+              <stop offset="100%" stopColor={to} />
+            </linearGradient>
+          ))}
           <filter id="vs-glow" x="-50%" y="-50%" width="200%" height="200%">
             <feGaussianBlur stdDeviation="0.7" />
           </filter>
         </defs>
-        <polygon points="0,0 58,0 42,100 0,100" fill="url(#vs-pink)" />
-        <polygon points="58,0 100,0 100,100 42,100" fill="url(#vs-blue)" />
-        <line
-          x1={58}
-          y1={0}
-          x2={42}
-          y2={100}
-          stroke="#fff"
-          strokeWidth={1.6}
-          filter="url(#vs-glow)"
-          strokeLinecap="round"
-        />
-        <line
-          x1={58}
-          y1={0}
-          x2={42}
-          y2={100}
-          stroke="#fff"
-          strokeWidth={0.35}
-        />
+        {fighters.map((f, i) => {
+          const l = seam(i);
+          const r = seam(i + 1);
+          return (
+            <polygon
+              key={f.id}
+              points={`${l.top},0 ${r.top},0 ${r.bottom},100 ${l.bottom},100`}
+              fill={`url(#vs-panel-${i % PANELS.length})`}
+            />
+          );
+        })}
+        {fighters.slice(1).map((f, i) => {
+          const { top, bottom } = seam(i + 1);
+          return (
+            <g key={f.id}>
+              <line
+                x1={top}
+                y1={0}
+                x2={bottom}
+                y2={100}
+                stroke="#fff"
+                strokeWidth={1.6}
+                filter="url(#vs-glow)"
+                strokeLinecap="round"
+              />
+              <line
+                x1={top}
+                y1={0}
+                x2={bottom}
+                y2={100}
+                stroke="#fff"
+                strokeWidth={0.35}
+              />
+            </g>
+          );
+        })}
       </svg>
 
-      <div className="absolute left-[16%] top-1/2 -translate-y-1/2">
-        <FighterTile avatar={you} tone="you" delay={0.15} />
-      </div>
-
-      <div className="absolute right-[14%] top-1/2 flex -translate-y-1/2 flex-col items-center gap-[4vh]">
-        {bots.map((bot, i) => (
+      {fighters.map((f, i) => (
+        <div
+          key={f.id}
+          className="absolute top-1/2 -translate-x-1/2 -translate-y-1/2"
+          style={{ left: `${(i + 0.5) * width}%` }}
+        >
           <FighterTile
-            key={bot.id}
-            avatar={bot}
-            tone="bot"
-            delay={0.3 + i * 0.12}
+            avatar={f}
+            tone={i === 0 ? 'you' : 'bot'}
+            delay={0.15 + i * 0.12}
           />
-        ))}
-      </div>
+        </div>
+      ))}
 
-      <motion.div
-        className="absolute left-1/2 top-1/2 flex -translate-x-1/2 -translate-y-1/2 items-start justify-center"
-        initial={reducedMotion ? undefined : { scale: 0, rotate: -18 }}
-        animate={{ scale: 1, rotate: 0 }}
-        transition={{ type: 'spring', stiffness: 240, damping: 13 }}
-      >
-        <div className="absolute left-1/2 top-1/2 -z-10 h-[38vmin] w-[38vmin] -translate-x-1/2 -translate-y-1/2 rounded-full bg-white/70 blur-3xl" />
-        <span className="bg-linear-to-b from-[#ffd61f] via-[#ff8a1a] to-[#e6392e] bg-clip-text font-display text-[clamp(90px,20vw,190px)] leading-none font-black italic text-transparent [-webkit-text-stroke:7px_#fff] drop-shadow-[0_8px_0_rgba(0,0,0,0.22)]">
-          V
-        </span>
-        <span className="-ml-4 mt-[0.55em] bg-linear-to-b from-[#b5ecff] via-[#3fbdf5] to-[#0d8bd4] bg-clip-text font-display text-[clamp(90px,20vw,190px)] leading-none font-black italic text-transparent [-webkit-text-stroke:7px_#fff] drop-shadow-[0_8px_0_rgba(0,0,0,0.22)]">
-          S
-        </span>
-      </motion.div>
+      {fighters.slice(1).map((f, i) => (
+        <div
+          key={f.id}
+          className="absolute top-1/2 -translate-x-1/2 -translate-y-1/2"
+          style={{ left: `${(i + 1) * width}%` }}
+        >
+          <VsBadge delay={0.35 + i * 0.12} />
+        </div>
+      ))}
     </div>
   );
 };

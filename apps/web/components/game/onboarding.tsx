@@ -60,8 +60,12 @@ const GoogleIcon = () => (
   </svg>
 );
 
+const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const MIN_PASSWORD_LENGTH = 6;
+
 const Onboarding = () => {
   const [form, setForm] = useState({ name: '', email: '', password: '' });
+  const [errors, setErrors] = useState({ name: '', email: '', password: '' });
 
   const { triggerToast } = usePopUpToaster();
   const [, setAccessToken] = useStorage<string | null>(ACCESS_TOKEN, null);
@@ -74,7 +78,21 @@ const Onboarding = () => {
   const handleContinue = () => {
     const name = form.name.trim();
     const email = form.email.trim();
-    if (!name || !email || !form.password) return;
+    const nextErrors = {
+      name: name ? '' : 'Nickname is required',
+      email: !email
+        ? 'Email is required'
+        : EMAIL_REGEX.test(email)
+          ? ''
+          : 'Enter a valid email address',
+      password: !form.password
+        ? 'Password is required'
+        : form.password.length < MIN_PASSWORD_LENGTH
+          ? `Password must be at least ${MIN_PASSWORD_LENGTH} characters`
+          : '',
+    };
+    setErrors(nextErrors);
+    if (nextErrors.name || nextErrors.email || nextErrors.password) return;
     createUser({
       body: {
         name,
@@ -160,7 +178,11 @@ const Onboarding = () => {
               placeholder="Enter your name"
               maxLength={16}
               value={form.name}
-              onChange={(e) => setForm({ ...form, name: e.target.value })}
+              error={errors.name}
+              onChange={(e) => {
+                setForm({ ...form, name: e.target.value });
+                if (errors.name) setErrors({ ...errors, name: '' });
+              }}
             />
             <TextInput
               label="Email"
@@ -168,7 +190,11 @@ const Onboarding = () => {
               autoComplete="email"
               placeholder="you@example.com"
               value={form.email}
-              onChange={(e) => setForm({ ...form, email: e.target.value })}
+              error={errors.email}
+              onChange={(e) => {
+                setForm({ ...form, email: e.target.value });
+                if (errors.email) setErrors({ ...errors, email: '' });
+              }}
             />
             <TextInput
               label="Password"
@@ -176,7 +202,11 @@ const Onboarding = () => {
               autoComplete="current-password"
               placeholder="Enter your password"
               value={form.password}
-              onChange={(e) => setForm({ ...form, password: e.target.value })}
+              error={errors.password}
+              onChange={(e) => {
+                setForm({ ...form, password: e.target.value });
+                if (errors.password) setErrors({ ...errors, password: '' });
+              }}
               onKeyDown={(e) => e.key === 'Enter' && handleContinue()}
             />
 

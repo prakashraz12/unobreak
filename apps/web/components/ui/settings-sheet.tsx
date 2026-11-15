@@ -53,12 +53,12 @@ const ToggleRow = ({
 
       <span
         className={cn(
-          'absolute top-1/2 size-11 -translate-y-1/2 rounded-full border-[3px] border-[#6b2f00] bg-[radial-gradient(70%_70%_at_40%_30%,#ffffff_0%,#f0f0f0_55%,#cfcfcf_100%)] shadow-[0_3px_0_#6b2f00,0_4px_6px_rgba(0,0,0,0.4)] transition-all duration-200',
-          value ? 'left-[calc(100%-2.5rem)]' : '-left-1',
+          'absolute top-1/2 h-11 w-9 -translate-y-1/2 rounded-lg border-[3px] border-[#6b2f00] bg-[radial-gradient(65%_65%_at_50%_35%,#fff48a_0%,#ffd61f_45%,#f5a300_100%)] shadow-[0_3px_0_#6b2f00,0_4px_6px_rgba(0,0,0,0.4)] transition-all duration-200',
+          value ? 'left-[calc(100%-2rem)]' : '-left-1',
         )}
       >
         <span
-          className="pointer-events-none absolute inset-x-1.5 top-1 h-1/3 rounded-t-full bg-linear-to-b from-white/90 to-transparent"
+          className="pointer-events-none absolute inset-x-1.5 top-1 h-1/3 rounded-t-md bg-linear-to-b from-white/85 to-transparent"
           aria-hidden="true"
         />
       </span>
@@ -107,7 +107,7 @@ const SettingsSheet = () => {
               updateSettings({ volume: Number(e.target.value) / 100 })
             }
             aria-label="Volume"
-            className="h-3 w-full cursor-pointer appearance-none rounded-xl border-2 border-[#6b2f00] bg-[#3a3a3a] accent-[#ffd61f]"
+            className="volume-slider h-3 w-full cursor-pointer appearance-none rounded-xl border-2 border-[#6b2f00] bg-[#3a3a3a] accent-[#ffd61f]"
           />
         </div>
       </SheetBody>

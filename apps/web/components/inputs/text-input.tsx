@@ -3,6 +3,7 @@ import { useId, useState, type InputHTMLAttributes } from 'react';
 
 export interface TextInputProps extends InputHTMLAttributes<HTMLInputElement> {
   label?: string;
+  error?: string;
 }
 
 const EyeIcon = ({ visible }: { visible: boolean }) => (
@@ -24,6 +25,7 @@ const EyeIcon = ({ visible }: { visible: boolean }) => (
 
 const TextInput = ({
   label,
+  error,
   id,
   className,
   type = 'text',
@@ -48,7 +50,7 @@ const TextInput = ({
         <input
           id={inputId}
           type={isPassword && showPassword ? 'text' : type}
-          className={`h-14 w-full rounded-xl border-4 border-[#6b2f00] bg-linear-to-b from-[#fde9a8] to-[#fffbea] px-6 text-lg font-bold text-[#6b2f00] shadow-[inset_0_4px_0_rgba(107,47,0,0.25),0_4px_0_#6b2f00,0_8px_10px_rgba(0,0,0,0.3)] outline-none transition-shadow placeholder:font-semibold placeholder:text-[#6b2f00]/45 focus:shadow-[inset_0_4px_0_rgba(107,47,0,0.25),0_4px_0_#6b2f00,0_0_0_6px_#ffd61f] disabled:cursor-not-allowed disabled:opacity-60 ${isPassword ? 'pr-14' : ''}`}
+          className={`h-14 w-full rounded-xl border-4 ${error ? 'border-red-600' : 'border-[#6b2f00]'} bg-linear-to-b from-[#fde9a8] to-[#fffbea] px-6 text-lg font-bold text-[#6b2f00] shadow-[inset_0_4px_0_rgba(107,47,0,0.25),0_4px_0_#6b2f00,0_8px_10px_rgba(0,0,0,0.3)] outline-none transition-shadow placeholder:font-semibold placeholder:text-[#6b2f00]/45 focus:shadow-[inset_0_4px_0_rgba(107,47,0,0.25),0_4px_0_#6b2f00,0_0_0_6px_#ffd61f] disabled:cursor-not-allowed disabled:opacity-60 ${isPassword ? 'pr-14' : ''}`}
           {...props}
         />
         {isPassword && (
@@ -63,6 +65,11 @@ const TextInput = ({
           </button>
         )}
       </div>
+      {error && (
+        <p className="pl-4 text-sm font-bold text-red-200 [text-shadow:0_1px_0_#6b2f00]">
+          {error}
+        </p>
+      )}
     </div>
   );
 };

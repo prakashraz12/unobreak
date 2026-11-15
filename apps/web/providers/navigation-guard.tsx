@@ -10,6 +10,7 @@ import {
   useState,
   type ReactNode,
 } from 'react';
+import { useRouter } from 'next/navigation';
 import { Modal, ModalContent } from '@repo/ui/modal';
 
 interface NavigationGuardContextValue {
@@ -24,6 +25,7 @@ const NavigationGuardContext =
 const GUARD_STATE = { navigationGuard: true } as const;
 
 const NavigationGuardProvider = ({ children }: { children: ReactNode }) => {
+  const router = useRouter();
   const [armed, setArmed] = useState(false);
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [pendingAction, setPendingAction] = useState<'back' | 'reload'>('back');
@@ -41,6 +43,7 @@ const NavigationGuardProvider = ({ children }: { children: ReactNode }) => {
     if (!armed) return;
 
     const onBeforeUnload = (e: BeforeUnloadEvent) => {
+      if (!armedRef.current) return;
       e.preventDefault();
       e.returnValue = '';
     };
@@ -74,10 +77,17 @@ const NavigationGuardProvider = ({ children }: { children: ReactNode }) => {
   }, [armed]);
 
   const leave = useCallback(() => {
+    armedRef.current = false;
     disarm();
-    if (pendingAction === 'reload') window.location.reload();
-    else history.back();
-  }, [disarm, pendingAction]);
+    if (pendingAction === 'reload') {
+      window.location.reload();
+      return;
+    }
+    window.addEventListener('popstate', () => router.replace('/menu'), {
+      once: true,
+    });
+    history.back();
+  }, [disarm, pendingAction, router]);
 
   const value = useMemo(() => ({ armed, arm, disarm }), [armed, arm, disarm]);
 

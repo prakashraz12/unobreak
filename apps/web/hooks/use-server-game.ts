@@ -33,6 +33,7 @@ export interface ServerGamePayload {
     team: number | null;
   }[];
   events: GameEvent[];
+  autoPlayed: string[];
 }
 
 const useServerGame = (sessionId: number, paused = false) => {
@@ -42,9 +43,22 @@ const useServerGame = (sessionId: number, paused = false) => {
   const humanId = String(user.id);
   const [payload, setPayload] = useState<ServerGamePayload | null>(null);
   const [unoCalled, setUnoCalled] = useState(false);
+  const [unoCall, setUnoCall] = useState<{
+    playerId: string;
+    key: number;
+  } | null>(null);
   const [colorPick, setColorPick] = useState<{
     playerId: string;
     color: Color;
+    key: number;
+  } | null>(null);
+  const [chat, setChat] = useState<{
+    playerId: string;
+    text: string;
+    key: number;
+  } | null>(null);
+  const [cardEffect, setCardEffect] = useState<{
+    value: 'skip' | 'draw2' | 'wild4';
     key: number;
   } | null>(null);
   const sessionRef = useRef(sessionId);
@@ -90,7 +104,11 @@ const useServerGame = (sessionId: number, paused = false) => {
     (events: GameEvent[]) => {
       for (const event of events) {
         switch (event.type) {
-          case 'cardPlayed':
+          case 'cardPlayed': {
+            const value = event.card.value;
+            if (value === 'skip' || value === 'draw2' || value === 'wild4') {
+              setCardEffect({ value, key: Date.now() });
+            }
             if (event.chosenColor !== undefined) {
               const key = Date.now();
               setColorPick({
@@ -102,6 +120,12 @@ const useServerGame = (sessionId: number, paused = false) => {
                 () => setColorPick((p) => (p?.key === key ? null : p)),
                 1800,
               );
+            }
+            break;
+          }
+          case 'unoCalled':
+            if (event.playerId !== humanId) {
+              setUnoCall({ playerId: event.playerId, key: Date.now() });
             }
             break;
           case 'unoPenalty':
@@ -135,6 +159,17 @@ const useServerGame = (sessionId: number, paused = false) => {
     if (p.events.length) announce(p.events);
     setPayload(p);
   });
+
+  useSocketEvent('game:chat', (p: { playerId: string; text: string }) => {
+    if (p.playerId !== humanId) setChat({ ...p, key: Date.now() });
+  });
+
+  const sendChat = useCallback(
+    (text: string) => {
+      socket?.emit('game:chat', { sessionId: sessionRef.current, text });
+    },
+    [socket],
+  );
 
   const send = useCallback(
     async (action: GameAction) => {
@@ -176,10 +211,16 @@ const useServerGame = (sessionId: number, paused = false) => {
       );
   }, [socket, triggerToast]);
 
+  const autoPlayed = payload?.autoPlayed.includes(humanId) ?? false;
+
+  const resumeControl = useCallback(() => {
+    socket?.emit('game:resume', { sessionId: sessionRef.current });
+  }, [socket]);
+
   const turnTimeout = useCallback(() => {
-    if (!currentId || currentId !== humanId) return;
+    if (!currentId || currentId !== humanId || autoPlayed) return;
     void send({ type: 'timeout', playerId: currentId });
-  }, [send, currentId, humanId]);
+  }, [send, currentId, humanId, autoPlayed]);
 
   const play = useCallback(
     (cardId: string, chosenColor?: Color) =>
@@ -195,19 +236,27 @@ const useServerGame = (sessionId: number, paused = false) => {
 
   return useMemo(() => {
     if (!payload) return null;
-    const gated = (v: boolean) => v && !paused;
+    const gated = (v: boolean) => v && !paused && !autoPlayed;
     return {
       view: payload.view,
       bots,
       totalGameTime: payload.totalGameTime,
       turnTimeLimit: payload.turnTimeLimit,
       turnTimeout,
-      playableCardIds: new Set(paused ? [] : payload.playableCardIds),
+      playableCardIds: new Set(
+        paused || autoPlayed ? [] : payload.playableCardIds,
+      ),
+      autoPlayed,
+      resumeControl,
       canDraw: gated(payload.canDraw),
       canPass: gated(payload.canPass),
       canChallenge: gated(payload.canChallenge),
       unoCalled,
       colorPick,
+      unoCall,
+      chat,
+      sendChat,
+      cardEffect,
       play,
       draw: () => void send({ type: 'draw', playerId: humanId }),
       pass: () => void send({ type: 'pass', playerId: humanId }),
@@ -218,10 +267,16 @@ const useServerGame = (sessionId: number, paused = false) => {
   }, [
     payload,
     paused,
+    autoPlayed,
+    resumeControl,
     bots,
     turnTimeout,
     unoCalled,
     colorPick,
+    unoCall,
+    chat,
+    sendChat,
+    cardEffect,
     play,
     send,
     humanId,

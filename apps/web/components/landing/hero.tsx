@@ -51,7 +51,7 @@ export default function LandingHero() {
           className="size-full object-cover object-bottom sm:object-contain"
         />
       </div>
-      <h1 className="sr-only">UnoBreak</h1>
+      <h1 className="sr-only">UnoBreak — Play UNO Online with Friends</h1>
 
       <div
         className="absolute inset-x-0 bottom-0 h-[300px] bg-linear-to-t from-[#a8d94e] to-transparent"

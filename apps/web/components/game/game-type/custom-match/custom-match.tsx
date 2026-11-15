@@ -16,6 +16,7 @@ import BackButton from '@repo/ui/back-button';
 import { NamePill } from '../../game-ui/matchmaking-screen';
 import type { Match, User } from '../../../../services/types-schemas';
 import useSoloMatch from '../solo-player/use-solo-match';
+import useInviteCooldown from '../../../../hooks/use-invite-cooldown';
 
 const ACK_TIMEOUT_MS = 10_000;
 const SEATS = 4;
@@ -41,6 +42,7 @@ const CustomMatch = ({
     joinMatchId,
   );
   const [invitedIds, setInvitedIds] = useState<ReadonlySet<number>>(new Set());
+  const { secondsLeft, startCooldown } = useInviteCooldown();
   const [pickerOpen, setPickerOpen] = useState(false);
   const [starting, setStarting] = useState<number | null>(null);
 
@@ -145,6 +147,7 @@ const CustomMatch = ({
     );
     if (ok !== undefined) {
       setInvitedIds((prev) => new Set(prev).add(userId));
+      startCooldown(userId);
     }
   };
 
@@ -375,6 +378,7 @@ const CustomMatch = ({
                 ) : (
                   friends.map((f) => {
                     const invited = invitedIds.has(f.user.userId);
+                    const cooling = secondsLeft(f.user.userId);
                     const joined = players.some(
                       (p) => p.userId === f.user.userId,
                     );
@@ -405,11 +409,17 @@ const CustomMatch = ({
                         </div>
                         <button
                           type="button"
-                          disabled={invited || joined || !online || full}
+                          disabled={cooling > 0 || joined || !online || full}
                           onClick={() => void invite(f.user.userId)}
                           className="shrink-0 cursor-pointer rounded-lg border-2 border-[#14540f] bg-linear-to-b from-[#7be05a] to-[#2fa52a] px-3 py-1.5 text-[10px] font-black uppercase italic tracking-wide text-white shadow-[0_2px_0_#14540f] [-webkit-text-stroke:2px_#14540f] [paint-order:stroke_fill] transition-transform hover:scale-[1.04] active:translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-50 disabled:grayscale"
                         >
-                          {joined ? 'Joined' : invited ? 'Invited' : 'Invite'}
+                          {joined
+                            ? 'Joined'
+                            : cooling > 0
+                              ? `Invited ${cooling}s`
+                              : invited
+                                ? 'Invite again'
+                                : 'Invite'}
                         </button>
                       </div>
                     );

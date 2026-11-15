@@ -15,6 +15,8 @@ import { useOptionalFriendRequests } from './friend-request-provider';
 import SettingsSheet from '../components/ui/settings-sheet';
 import Users from '../components/users-sheet/users';
 import UsersSheetTrigger from '../components/users-sheet/users-trigger';
+import ChatMessageToaster from '../components/chat-message-toast';
+import { useFriendRequests } from './friend-request-provider';
 
 const SHEETS = {
   settings: { side: 'right', content: <SettingsSheet />, hideClose: false },
@@ -41,7 +43,9 @@ const SheetContext = createContext<SheetContextValue | null>(null);
 export const SheetProvider = ({ children }: { children: ReactNode }) => {
   const [activeSheet, setActiveSheet] = useState<SheetId | null>(null);
   const { inGame } = useGame();
-  const pendingCount = useOptionalFriendRequests()?.pendingCount ?? 0;
+  const friendRequests = useOptionalFriendRequests();
+  const pendingCount =
+    (friendRequests?.pendingCount ?? 0) + (friendRequests?.unreadTotal ?? 0);
   const pathname = usePathname();
   const isLanding = pathname === '/';
 
@@ -62,6 +66,7 @@ export const SheetProvider = ({ children }: { children: ReactNode }) => {
           onClick={() => openSheet('users')}
         />
       )}
+      <ChatMessageToaster />
       <Sheet
         open={activeSheet !== null}
         onOpenChange={(open) => {

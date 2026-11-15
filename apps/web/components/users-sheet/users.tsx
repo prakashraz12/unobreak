@@ -53,11 +53,13 @@ const UserRow = ({
   user,
   online,
   showAddFriend = true,
+  unread = 0,
   onChat,
 }: {
   user: UserResoponseDTO;
   online: boolean;
   showAddFriend?: boolean;
+  unread?: number;
   onChat?: () => void;
 }) => {
   const lastActive = timeAgo(user.activity?.lastActive);
@@ -121,9 +123,14 @@ const UserRow = ({
             <button
               type="button"
               onClick={onChat}
-              className="cursor-pointer rounded-lg border-2 border-[#143a54] bg-linear-to-b from-[#5aa8e0] to-[#1f6fb5] px-2.5 py-1 text-[10px] font-black uppercase italic tracking-wide text-white shadow-[0_2px_0_#143a54] [-webkit-text-stroke:2px_#143a54] [paint-order:stroke_fill] transition-transform hover:scale-[1.04] active:translate-y-0.5"
+              className="relative cursor-pointer rounded-lg border-2 border-[#143a54] bg-linear-to-b from-[#5aa8e0] to-[#1f6fb5] px-2.5 py-1 text-[10px] font-black uppercase italic tracking-wide text-white shadow-[0_2px_0_#143a54] [-webkit-text-stroke:2px_#143a54] [paint-order:stroke_fill] transition-transform hover:scale-[1.04] active:translate-y-0.5"
             >
               Chat
+              {unread > 0 && (
+                <span className="absolute -right-1.5 -top-1.5 flex size-4.5 items-center justify-center rounded-full border-2 border-white bg-[#e3202b] text-[9px] font-black text-white">
+                  {unread > 9 ? '9+' : unread}
+                </span>
+              )}
             </button>
           )}
           {showAddFriend &&
@@ -304,12 +311,21 @@ const SentRow = ({
 
 const Users = () => {
   const [tab, setTab] = useState<Tab>('players');
-  const { incoming, outgoing, friends, pendingCount, accept, decline } =
-    useFriendRequests();
+  const {
+    incoming,
+    outgoing,
+    friends,
+    pendingCount,
+    unread,
+    unreadTotal,
+    chatWith,
+    openChat,
+    accept,
+    decline,
+  } = useFriendRequests();
   const [search, setSearch] = useState('');
   const [page, setPage] = useState(0);
   const [presence, setPresence] = useState<Record<number, boolean>>({});
-  const [chatWith, setChatWith] = useState<UserResoponseDTO | null>(null);
 
   useSocketEvent<[{ userId: number; isOnline: boolean }]>(
     'presence:update',
@@ -333,6 +349,8 @@ const Users = () => {
   useEffect(() => {
     fetchUsers();
   }, [search, page]);
+
+  useEffect(() => () => openChat(null), [openChat]);
 
   const users = data?.data ?? [];
   const pagination = data?.pagination;
@@ -374,7 +392,9 @@ const Users = () => {
               key={t.id}
               label={t.label}
               active={tab === t.id}
-              badge={t.id === 'friends' ? pendingCount : undefined}
+              badge={
+                t.id === 'friends' ? pendingCount + unreadTotal : undefined
+              }
               onClick={() => setTab(t.id)}
             />
           ))}
@@ -422,7 +442,7 @@ const Users = () => {
 
       <SheetBody className="relative flex flex-col gap-3">
         {chatWith && (
-          <ChatPanel friend={chatWith} onClose={() => setChatWith(null)} />
+          <ChatPanel friend={chatWith} onClose={() => openChat(null)} />
         )}
         {tab === 'friends' ? (
           incoming.length === 0 &&
@@ -478,7 +498,8 @@ const Users = () => {
                         f.user.activity?.isOnline ??
                         false
                       }
-                      onChat={() => setChatWith(f.user)}
+                      unread={unread[f.user.userId] ?? 0}
+                      onChat={() => openChat(f.user)}
                     />
                   ))}
                 </div>

@@ -69,6 +69,15 @@ export class FriendController {
     return this.friendService.listMessages(sub, userId);
   }
 
+  /** Mark a friend's messages to me as read. */
+  @Post(':userId/messages/read')
+  markRead(
+    @CurrentUser() { sub }: JwtPayload,
+    @Param('userId', ParseIntPipe) userId: number,
+  ) {
+    return this.friendService.markReadFrom(sub, userId);
+  }
+
   /** Incoming + outgoing pending requests. */
   @Get('requests')
   listRequests(@CurrentUser() { sub }: JwtPayload): Promise<FriendRequestsDto> {

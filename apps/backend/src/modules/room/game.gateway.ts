@@ -77,7 +77,43 @@ export class GameGateway implements OnGatewayInit, OnGatewayConnection {
   ) {
     const session = await this.requireSessionPlayer(client, sessionId);
     await client.join(gameRoom(sessionId));
-    return this.sessionService.payloadFor(session, client.data.user.sub);
+    return this.sessionService.payloadFor(
+      session,
+      client.data.user.sub,
+      [],
+      this.gameRuntime.autoPlayedIn(sessionId),
+    );
+  }
+
+  /** Take your seat back from the bot after an idle takeover. */
+  @SubscribeMessage('game:resume')
+  async gameResume(
+    @ConnectedSocket() client: AuthedSocket,
+    @MessageBody('sessionId') sessionId: number,
+  ) {
+    await this.requireSessionPlayer(client, sessionId);
+    await this.gameRuntime.resumeControl(
+      sessionId,
+      String(client.data.user.sub),
+    );
+    return { ok: true };
+  }
+
+  @SubscribeMessage('game:chat')
+  async gameChat(
+    @ConnectedSocket() client: AuthedSocket,
+    @MessageBody('sessionId') sessionId: number,
+    @MessageBody('text') text: unknown,
+  ) {
+    if (typeof text !== 'string' || !text.trim() || text.length > 40) {
+      throw new WsException('Invalid chat message');
+    }
+    await this.requireSessionPlayer(client, sessionId);
+    client.to(gameRoom(sessionId)).emit('game:chat', {
+      playerId: String(client.data.user.sub),
+      text: text.trim(),
+    });
+    return { ok: true };
   }
 
   @SubscribeMessage('game:action')
@@ -117,7 +153,12 @@ export class GameGateway implements OnGatewayInit, OnGatewayConnection {
     await client.join(gameRoom(sessionId));
     await this.gameRuntime.broadcastViews(fresh);
     void this.gameRuntime.runBots(sessionId);
-    return this.sessionService.payloadFor(fresh, client.data.user.sub);
+    return this.sessionService.payloadFor(
+      fresh,
+      client.data.user.sub,
+      [],
+      this.gameRuntime.autoPlayedIn(sessionId),
+    );
   }
 
   @SubscribeMessage('game:leave')

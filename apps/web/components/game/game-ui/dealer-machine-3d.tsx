@@ -469,13 +469,13 @@ const DealerMachine3D = ({
     };
     [-1, 1].forEach((s) => {
       const g = new THREE.Group();
-      g.position.set(s * 1.22, 2.15, -0.25);
-      g.rotation.z = s * 0.5;
+      g.position.set(s * 1.22, 2.15, -0.05);
+      g.rotation.z = s * 0.32;
       for (let i = 0; i < 16; i++) {
         const m = mkCard();
         m.position.set(
-          s * 0.75 + (Math.random() - 0.5) * 0.03,
-          i * 0.02 + 0.01,
+          s * CARD_L * 0.05 + (Math.random() - 0.5) * 0.03,
+          i * 0.02 - 0.15,
           (Math.random() - 0.5) * 0.03,
         );
         m.rotation.y = (Math.random() - 0.5) * 0.025;

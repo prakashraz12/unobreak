@@ -18,7 +18,7 @@ export type ChatMessage = {
   };
 };
 
-type IncomingChatMessage = Omit<ChatMessage, 'mine'>;
+export type IncomingChatMessage = Omit<ChatMessage, 'mine'>;
 
 const fetchHistory = (friendUserId: number) =>
   queriesFetch<ChatMessage[], unknown, undefined, {}, {}, {}>({
@@ -26,11 +26,17 @@ const fetchHistory = (friendUserId: number) =>
     method: 'get',
   });
 
-const postMessage = (friendUserId: number, text: string) =>
+export const postMessage = (friendUserId: number, text: string) =>
   queriesFetch<unknown, unknown, { text: string }, {}, {}, {}>({
     url: `/friends/${friendUserId}/messages`,
     method: 'post',
     body: { text },
+  });
+
+export const markMessagesRead = (friendUserId: number) =>
+  queriesFetch<unknown, unknown, undefined, {}, {}, {}>({
+    url: `/friends/${friendUserId}/messages/read`,
+    method: 'post',
   });
 
 export const useChat = (friend: UserResoponseDTO | null) => {
@@ -60,6 +66,7 @@ export const useChat = (friend: UserResoponseDTO | null) => {
   useSocketEvent<[IncomingChatMessage]>('chat:message', (msg) => {
     if (friend && msg.from.userId === friend.userId) {
       setMessages((prev) => [...prev, msg]);
+      void markMessagesRead(friend.userId).catch(() => {});
     }
   });
 

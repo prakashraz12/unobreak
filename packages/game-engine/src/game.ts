@@ -161,9 +161,13 @@ function applyPlay(
     return;
   }
 
-  if (player.hand.length === 1 && action.callUno !== true) {
-    const count = drawCards(state, idx, state.rules.unoPenaltyCards);
-    events.push({ type: 'unoPenalty', playerId: player.id, count });
+  if (player.hand.length === 1) {
+    if (action.callUno === true) {
+      events.push({ type: 'unoCalled', playerId: player.id });
+    } else {
+      const count = drawCards(state, idx, state.rules.unoPenaltyCards);
+      events.push({ type: 'unoPenalty', playerId: player.id, count });
+    }
   }
 
   switch (card.value) {

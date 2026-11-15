@@ -151,6 +151,10 @@ export class UserService {
     return this.users.findOneBy({ id });
   }
 
+  findByUserId(userId: number): Promise<User | null> {
+    return this.users.findOneBy({ userId });
+  }
+
   async setOnline(id: number, isOnline: boolean): Promise<void> {
     await this.users.update(id, {
       activity: { isOnline, lastActive: new Date() },

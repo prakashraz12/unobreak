@@ -1,8 +1,7 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { useSocketEvent } from '@repo/socket';
 import SettingsButton from '@repo/ui/settings-button';
 import UserAvatar from '../avatars/user-avatar';
 import { AVATARS } from '../avatars/presets';
@@ -15,6 +14,9 @@ import SoloMatchmaking from './game-type/solo-player/solo-matchmaking';
 import Team2v2Matchmaking from './game-type/team-2v2/team-2v2-matchmaking';
 import CustomMatch from './game-type/custom-match/custom-match';
 import LandscapeGuard from './landscape-guard';
+import { useMatchInvite } from '../../providers/match-invite-provider';
+import { useAppSettings } from '../../providers/app-provider';
+import { SOUNDS } from '../../assets/export';
 
 const GameTableContent = () => {
   const router = useRouter();
@@ -27,31 +29,38 @@ const GameTableContent = () => {
   const [custom, setCustom] = useState(false);
   const [duel, setDuel] = useState(false);
 
-  const [invitedMatchId, setInvitedMatchId] = useState<number | null>(null);
-
-  const [invitedType, setInvitedType] = useState<
-    'TEAM_2V2' | 'PRIVATE_ROOM' | null
-  >(null);
-
-  const [invite, setInvite] = useState<{
-    matchId: number;
-    type: 'TEAM_2V2' | 'PRIVATE_ROOM';
-    from: { userId: number; name: string; avatarId: number };
-  } | null>(null);
+  const { joinRequest, clearJoinRequest } = useMatchInvite();
+  const invitedMatchId = joinRequest?.matchId ?? null;
+  const invitedType = joinRequest?.type ?? null;
   const [copied, setCopied] = useState(false);
 
-  useSocketEvent(
-    'match:invite',
-    (payload: {
-      matchId: number;
-      type: 'TEAM_2V2' | 'PRIVATE_ROOM';
-      from: { userId: number; name: string; avatarId: number };
-    }) => {
-      if (payload.type === 'TEAM_2V2' || payload.type === 'PRIVATE_ROOM') {
-        setInvite(payload);
-      }
-    },
-  );
+  const { settings } = useAppSettings();
+  const inLobby = !solo && !team && !custom && !duel && invitedMatchId === null;
+  const musicRef = useRef<HTMLAudioElement | null>(null);
+  const volumeRef = useRef(settings.volume);
+  volumeRef.current = settings.volume;
+
+  useEffect(() => {
+    if (!inLobby || !settings.music) return;
+    musicRef.current ??= Object.assign(new Audio(SOUNDS.bgMusic), {
+      loop: true,
+    });
+    const audio = musicRef.current;
+    audio.volume = volumeRef.current;
+    const play = () => void audio.play().catch(() => {});
+    play();
+    window.addEventListener('pointerdown', play);
+    window.addEventListener('keydown', play);
+    return () => {
+      window.removeEventListener('pointerdown', play);
+      window.removeEventListener('keydown', play);
+      audio.pause();
+    };
+  }, [inLobby, settings.music]);
+
+  useEffect(() => {
+    if (musicRef.current) musicRef.current.volume = settings.volume;
+  }, [settings.volume]);
 
   const copyUserId = () => {
     void navigator.clipboard.writeText(String(user.userId)).catch(() => {});
@@ -70,8 +79,7 @@ const GameTableContent = () => {
         joinMatchId={invitedMatchId ?? undefined}
         onBack={() => {
           setTeam(false);
-          setInvitedMatchId(null);
-          setInvitedType(null);
+          clearJoinRequest();
         }}
       />
     );
@@ -90,8 +98,7 @@ const GameTableContent = () => {
         onBack={() => {
           setCustom(false);
           setDuel(false);
-          setInvitedMatchId(null);
-          setInvitedType(null);
+          clearJoinRequest();
         }}
       />
     );
@@ -187,35 +194,6 @@ const GameTableContent = () => {
           soloLoading={false}
         />
       </div>
-
-      {invite && (
-        <div className="absolute inset-x-0 bottom-8 z-20 flex justify-center">
-          <div className="flex items-center gap-4 rounded-2xl border-2 border-[#6b2f00] bg-white/95 px-5 py-3 shadow-lg">
-            <span className="font-display text-base font-black uppercase italic text-[#6b2f00]">
-              {invite.from.name} invites you to a{' '}
-              {invite.type === 'TEAM_2V2' ? '2v2 match' : 'custom match'}
-            </span>
-            <button
-              type="button"
-              onClick={() => {
-                setInvitedMatchId(invite.matchId);
-                setInvitedType(invite.type);
-                setInvite(null);
-              }}
-              className="cursor-pointer rounded-xl border-2 border-[#6b2f00] bg-linear-to-b from-[#7be05a] to-[#2fa52a] px-4 py-1.5 font-display text-sm font-black uppercase italic text-white shadow-[0_2px_0_#6b2f00] transition-transform hover:scale-105"
-            >
-              Join
-            </button>
-            <button
-              type="button"
-              onClick={() => setInvite(null)}
-              className="cursor-pointer rounded-xl border-2 border-[#6b2f00] bg-linear-to-b from-[#ff9b8a] to-[#e8590c] px-4 py-1.5 font-display text-sm font-black uppercase italic text-white shadow-[0_2px_0_#6b2f00] transition-transform hover:scale-105"
-            >
-              Decline
-            </button>
-          </div>
-        </div>
-      )}
     </div>
   );
 };

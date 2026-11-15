@@ -5,9 +5,10 @@ import {
   useCallback,
   useContext,
   useMemo,
-  useState,
   type ReactNode,
 } from 'react';
+import useStorage from '../hooks/use-storage';
+import { APP_SETTINGS } from '../keys';
 
 export interface AppSettings {
   sound: boolean;
@@ -29,11 +30,17 @@ interface AppSettingsContextValue {
 const AppSettingsContext = createContext<AppSettingsContextValue | null>(null);
 
 export default function AppProvider({ children }: { children: ReactNode }) {
-  const [settings, setSettings] = useState<AppSettings>(defaultSettings);
+  const [settings, setSettings] = useStorage<AppSettings>(
+    APP_SETTINGS,
+    defaultSettings,
+  );
 
-  const updateSettings = useCallback((patch: Partial<AppSettings>) => {
-    setSettings((prev) => ({ ...prev, ...patch }));
-  }, []);
+  const updateSettings = useCallback(
+    (patch: Partial<AppSettings>) => {
+      setSettings((prev) => ({ ...prev, ...patch }));
+    },
+    [setSettings],
+  );
 
   const value = useMemo(
     () => ({ settings, updateSettings }),

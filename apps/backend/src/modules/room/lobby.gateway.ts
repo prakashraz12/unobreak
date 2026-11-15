@@ -277,6 +277,35 @@ export class LobbyGateway
   }
 
   /**
+   * Invitee declined (or let the invite expire): tell the inviter, but only
+   * if they're actually seated in that match — no spoofed notifications.
+   */
+  @SubscribeMessage('match:decline')
+  async decline(
+    @ConnectedSocket() client: AuthedSocket,
+    @MessageBody('matchId') matchId: number,
+    @MessageBody('fromUserId') fromUserId: number,
+  ): Promise<{ ok: true }> {
+    const [match, inviter, me] = await Promise.all([
+      this.matchService.findById(matchId),
+      this.userService.findByUserId(fromUserId),
+      this.userService.findById(client.data.user.sub),
+    ]);
+    if (
+      match &&
+      inviter &&
+      me &&
+      match.players.some((p) => p.id === inviter.id)
+    ) {
+      this.realtime.toUserIfOnline(inviter.id, 'match:declined', {
+        matchId,
+        by: { userId: me.userId, name: me.name },
+      });
+    }
+    return { ok: true };
+  }
+
+  /**
    * Host arranges a custom lobby: `seats` is a 4-slot layout of users.id
    * (null = bot) — even seats are Team A, odd seats Team B — or null for
    * free-for-all. Broadcast so every seated client renders the same teams.

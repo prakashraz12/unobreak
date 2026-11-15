@@ -39,6 +39,8 @@ export interface GameStatePayload {
   }[];
   /** Events produced by the action that led to this state (empty on load). */
   events: GameEvent[];
+  /** Human seats the server is currently playing for (idle takeover). */
+  autoPlayed: string[];
 }
 
 const randomSeed = () => Math.floor(Math.random() * 2 ** 31);
@@ -194,6 +196,7 @@ export class GameSessionService {
     session: GameSession,
     userPk: number,
     events: GameEvent[] = [],
+    autoPlayed: string[] = [],
   ): GameStatePayload {
     const state = session.state;
     const playerId = String(userPk);
@@ -219,6 +222,7 @@ export class GameSessionService {
         team: p.team,
       })),
       events,
+      autoPlayed,
     };
   }
 

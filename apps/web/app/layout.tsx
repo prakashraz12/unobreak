@@ -25,9 +25,57 @@ const geistMono = localFont({
   variable: '--font-geist-mono',
 });
 
+const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? 'http://localhost:3000';
+
 export const metadata: Metadata = {
-  title: 'UnoBreak',
-  description: 'UnoBreak — the classic card game, reimagined',
+  metadataBase: new URL(siteUrl),
+  title: {
+    default: 'UnoBreak — Play UNO Online with Friends',
+    template: '%s | UnoBreak',
+  },
+  description:
+    'UnoBreak — the classic card game, reimagined. Play UNO online free: solo vs bots, 1v1 duels, 2v2 teams, or private rooms with friends. No download required.',
+  keywords: [
+    'UNO online',
+    'play UNO',
+    'UNO multiplayer',
+    'UNO with friends',
+    'card game online',
+    'UnoBreak',
+    '1v1 UNO',
+    '2v2 UNO',
+  ],
+  applicationName: 'UnoBreak',
+  authors: [{ name: 'Prakash Shrestha' }],
+  creator: 'Prakash Shrestha',
+  openGraph: {
+    type: 'website',
+    url: siteUrl,
+    siteName: 'UnoBreak',
+    title: 'UnoBreak — Play UNO Online with Friends',
+    description:
+      'The classic card game, reimagined. Play UNO online free: solo vs bots, 1v1 duels, 2v2 teams, or private rooms with friends.',
+    images: [
+      {
+        url: '/hero/your-room-your-rules.jpg',
+        width: 1200,
+        height: 630,
+        alt: 'UnoBreak — play UNO online with friends',
+      },
+    ],
+  },
+  twitter: {
+    card: 'summary_large_image',
+    title: 'UnoBreak — Play UNO Online with Friends',
+    description:
+      'The classic card game, reimagined. Play UNO online free: solo vs bots, 1v1 duels, 2v2 teams, or private rooms with friends.',
+    images: ['/hero/your-room-your-rules.jpg'],
+  },
+  robots: {
+    index: true,
+    follow: true,
+    googleBot: { index: true, follow: true },
+  },
 };
 
 export default function RootLayout({

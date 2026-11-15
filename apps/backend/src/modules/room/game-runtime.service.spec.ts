@@ -104,3 +104,33 @@ describe('GameRuntimeService.runBots', () => {
     await runtime.runBots(1); // loop exits immediately on status check
   });
 });
+
+describe('GameRuntimeService idle takeover', () => {
+  it('hands an idle human seat to the bot after 15s and back on resume', async () => {
+    vi.useFakeTimers();
+    try {
+      const session = makeSession('9');
+      const { runtime, sessionService } = makeRuntime(session);
+      // Bot move finishes the game so the loop stops after one action.
+      sessionService.applyAction.mockImplementationOnce(async (s) => {
+        s.status = GameSessionStatus.FINISHED;
+        return { ok: true as const, state: s.state, events: [] };
+      });
+      await runtime.broadcastViews(session);
+
+      await vi.advanceTimersByTimeAsync(14_000);
+      expect(runtime.autoPlayedIn(1)).toEqual([]);
+
+      await vi.advanceTimersByTimeAsync(1_000);
+      expect(runtime.autoPlayedIn(1)).toEqual(['9']);
+
+      await vi.advanceTimersByTimeAsync(1_000);
+      expect(sessionService.applyAction).toHaveBeenCalledTimes(1);
+
+      await runtime.resumeControl(1, '9');
+      expect(runtime.autoPlayedIn(1)).toEqual([]);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+});

@@ -75,6 +75,7 @@ export type GameEvent =
   | { type: 'cardsDrawn'; playerId: string; count: number }
   | { type: 'turnTimeout'; playerId: string }
   | { type: 'unoPenalty'; playerId: string; count: number }
+  | { type: 'unoCalled'; playerId: string }
   | {
       type: 'challengeResolved';
       challengerId: string;

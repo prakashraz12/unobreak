@@ -13,6 +13,8 @@ import { GameSessionService } from '../game-session/game-session.service.ts';
 import { userRoom } from './socket-helpers.ts';
 
 const BOT_DELAY_MS = 900;
+/** A human who doesn't act within this window is taken over by the bot. */
+const IDLE_TAKEOVER_MS = 15_000;
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
 /**
@@ -31,6 +33,10 @@ export class GameRuntimeService {
   private readonly botLoops = new Set<number>();
   /** Per-session turn deadline enforced server-side. */
   private readonly turnTimers = new Map<number, NodeJS.Timeout>();
+  /** Per-session idle clock that hands a stalled human seat to the bot. */
+  private readonly idleTimers = new Map<number, NodeJS.Timeout>();
+  /** Human seats currently being played by the bot, per session. */
+  private readonly autoPlay = new Map<number, Set<string>>();
 
   constructor(private readonly sessionService: GameSessionService) {}
 
@@ -99,7 +105,12 @@ export class GameRuntimeService {
     const viewStart = performance.now();
     const payloads = session.players.map((player) => ({
       userId: player.user.id,
-      payload: this.sessionService.payloadFor(session, player.user.id, events),
+      payload: this.sessionService.payloadFor(
+        session,
+        player.user.id,
+        events,
+        this.autoPlayedIn(session.id),
+      ),
     }));
     const viewMs = performance.now() - viewStart;
     const emitStart = performance.now();
@@ -107,6 +118,7 @@ export class GameRuntimeService {
       this.server.to(userRoom(userId)).emit('game:state', payload);
     }
     this.armTurnTimer(session);
+    this.armIdleTimer(session);
     this.logger.debug(
       `session ${session.id} views=${viewMs.toFixed(1)}ms emit=${(performance.now() - emitStart).toFixed(1)}ms`,
     );
@@ -132,7 +144,7 @@ export class GameRuntimeService {
             const currentId = this.sessionService.currentPlayerId(
               session.state,
             );
-            if (!currentId.startsWith('bot-')) return { done: true };
+            if (!this.isAutoSeat(sessionId, currentId)) return { done: true };
             const result = await this.sessionService.applyAction(
               session,
               chooseBotAction(session.state, currentId),
@@ -159,10 +171,82 @@ export class GameRuntimeService {
    * Called when a session finishes, restarts, or is abandoned.
    */
   clearSession(sessionId: number) {
-    const timer = this.turnTimers.get(sessionId);
-    if (timer) clearTimeout(timer);
-    this.turnTimers.delete(sessionId);
+    for (const timers of [this.turnTimers, this.idleTimers]) {
+      const timer = timers.get(sessionId);
+      if (timer) clearTimeout(timer);
+      timers.delete(sessionId);
+    }
     this.botLoops.delete(sessionId);
+    this.autoPlay.delete(sessionId);
+  }
+
+  autoPlayedIn(sessionId: number): string[] {
+    return [...(this.autoPlay.get(sessionId) ?? [])];
+  }
+
+  /**
+   * The player pressed Cancel on "Played by Computer": hand the seat back
+   * and push fresh views, which re-arms the idle clock for their turn.
+   */
+  async resumeControl(sessionId: number, playerId: string) {
+    await this.sessionService.enqueue(sessionId, async () => {
+      if (!this.autoPlay.get(sessionId)?.delete(playerId)) return;
+      const session = await this.sessionService.findById(sessionId);
+      if (session) await this.broadcastViews(session);
+    });
+  }
+
+  private isAutoSeat(sessionId: number, playerId: string) {
+    return (
+      playerId.startsWith('bot-') ||
+      (this.autoPlay.get(sessionId)?.has(playerId) ?? false)
+    );
+  }
+
+  /**
+   * If a human seat sits idle past IDLE_TAKEOVER_MS (or the turn limit, when
+   * shorter), the bot takes the seat over until the player cancels.
+   */
+  private armIdleTimer(session: GameSession) {
+    const existing = this.idleTimers.get(session.id);
+    if (existing) clearTimeout(existing);
+    this.idleTimers.delete(session.id);
+    if (session.status !== GameSessionStatus.ACTIVE) return;
+    const expectedId = this.sessionService.currentPlayerId(session.state);
+    if (this.isAutoSeat(session.id, expectedId)) return;
+    const limit = session.state.rules.turnTimeLimit;
+    const delay =
+      limit === null
+        ? IDLE_TAKEOVER_MS
+        : Math.min(IDLE_TAKEOVER_MS, limit * 1000);
+    const timer = setTimeout(() => {
+      void this.sessionService
+        .enqueue(session.id, async () => {
+          const fresh = await this.sessionService.findById(session.id);
+          if (
+            !fresh ||
+            fresh.status !== GameSessionStatus.ACTIVE ||
+            this.sessionService.currentPlayerId(fresh.state) !== expectedId
+          ) {
+            return false;
+          }
+          const seats = this.autoPlay.get(session.id) ?? new Set<string>();
+          seats.add(expectedId);
+          this.autoPlay.set(session.id, seats);
+          await this.broadcastViews(fresh);
+          return true;
+        })
+        .then((took) => {
+          if (took) void this.runBots(session.id);
+        })
+        .catch((err) =>
+          this.logger.error(
+            `Idle takeover failed for session ${session.id}:`,
+            err,
+          ),
+        );
+    }, delay);
+    this.idleTimers.set(session.id, timer);
   }
 
   /**

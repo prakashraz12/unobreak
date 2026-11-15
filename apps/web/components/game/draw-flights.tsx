@@ -428,7 +428,6 @@ const DrawFlights = ({
         }
       }
       setFlights(deal);
-      if (!muted) playSound('cardPull');
       return;
     }
 

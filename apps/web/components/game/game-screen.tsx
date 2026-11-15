@@ -6,6 +6,8 @@ import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
 import type { Card as EngineCard, Color, PlayerView } from '@repo/game-engine';
 import type { BotInfo } from '../../hooks/use-local-game';
 import { useGame } from '../../context/game-context';
+import { useAppSettings } from '../../providers/app-provider';
+import { useSheet } from '../../providers/sheet-provider';
 import { toCardBaseProps } from '../../lib/engine-card';
 import { useLoggedInUser } from '../../providers/loggedin-user';
 import { useNavigationLock } from '../../providers/navigation-guard';
@@ -20,6 +22,7 @@ import DiscardStack, {
   type ThrowOrigin,
 } from './game-ui/discard-stack';
 import DrawFlights, { type Seat } from './draw-flights';
+import { loopSound, playSound, type SoundName } from '../../assets/export';
 import LandscapeGuard from './landscape-guard';
 import GameOverModal from './game-over-modal';
 import {
@@ -31,12 +34,31 @@ import {
   PlayerTile,
   PartnerFan,
   SideFan,
-  SpeakerButton,
   TopFan,
   TurnPointer,
 } from './table-ui';
 
-const QUICK_CHAT = ['Hi!', 'Good luck!', 'Nice move!', 'Oops!', 'UNO!'];
+const QUICK_CHAT = [
+  'Hi!',
+  'Good luck!',
+  'Nice!',
+  'Not bad!',
+  'Oh no!',
+  'Hurry up!',
+  'UNO!',
+];
+const CHAT_SOUNDS: Partial<Record<string, SoundName>> = {
+  'Nice!': 'nice',
+  'Not bad!': 'notBad',
+  'Oh no!': 'ohNo',
+  'Hurry up!': 'hurryUp',
+  'UNO!': 'uno',
+};
+const EFFECT_SOUNDS = {
+  skip: 'skip',
+  draw2: 'drawTwo',
+  wild4: 'drawFour',
+} as const;
 const CHAT_DURATION_MS = 2500;
 
 const DEAL_FAILSAFE_MS = 12000;
@@ -73,12 +95,19 @@ export interface GameDriver {
   canChallenge: boolean;
   unoCalled: boolean;
   colorPick: { playerId: string; color: Color; key: number } | null;
+  unoCall: { playerId: string; key: number } | null;
+  chat: { playerId: string; text: string; key: number } | null;
+  sendChat: (text: string) => void;
+  cardEffect: { value: 'skip' | 'draw2' | 'wild4'; key: number } | null;
   play: (cardId: string, chosenColor?: Color) => unknown;
   draw: () => unknown;
   pass: () => unknown;
   challenge: () => unknown;
   callUno: () => void;
   restart: () => unknown;
+
+  autoPlayed?: boolean;
+  resumeControl?: () => void;
 }
 
 interface GameScreenProps {
@@ -120,20 +149,30 @@ const GameScreen = ({
     canChallenge,
     unoCalled,
     colorPick,
+    unoCall,
+    chat,
+    sendChat,
+    cardEffect,
     play,
     draw,
     pass,
     challenge,
     callUno,
-    restart,
+    autoPlayed = false,
+    resumeControl,
   } = game;
 
+  const { settings } = useAppSettings();
+  const { openSheet } = useSheet();
   const [wildCardId, setWildCardId] = useState<string | null>(null);
   const [secondsLeft, setSecondsLeft] = useState(totalGameTime ?? 0);
-  const [muted, setMuted] = useState(defaultMuted);
-  const [settingsOpen, setSettingsOpen] = useState(false);
+  const muted = !settings.sound || defaultMuted;
   const [chatOpen, setChatOpen] = useState(false);
   const [chatMessage, setChatMessage] = useState<string | null>(null);
+  const [chatMessageKey, setChatMessageKey] = useState(0);
+  const [opponentChat, setOpponentChat] = useState<
+    Record<string, { text: string; key: number }>
+  >({});
 
   const expired = totalGameTime !== null && secondsLeft <= 0;
   const gameOver = view.status === 'finished' || expired;
@@ -174,6 +213,58 @@ const GameScreen = ({
     const id = setTimeout(() => setDealing(false), DEAL_FAILSAFE_MS);
     return () => clearTimeout(id);
   }, [gameCount, reducedMotion]);
+
+  useEffect(() => {
+    if (!dealing || muted) return;
+    return loopSound('deal');
+  }, [dealing, muted]);
+
+  const mutedRef = useRef(muted);
+  mutedRef.current = muted;
+  const unoCallKey = unoCall?.key;
+  useEffect(() => {
+    if (unoCallKey !== undefined && !mutedRef.current) playSound('uno');
+  }, [unoCallKey]);
+
+  const colorPickKey = colorPick?.key;
+  const colorPickColor = colorPick?.color;
+  useEffect(() => {
+    if (colorPickKey !== undefined && colorPickColor && !mutedRef.current)
+      playSound(colorPickColor);
+  }, [colorPickKey, colorPickColor]);
+
+  const cardEffectKey = cardEffect?.key;
+  const cardEffectValue = cardEffect?.value;
+  useEffect(() => {
+    if (cardEffectKey !== undefined && cardEffectValue && !mutedRef.current)
+      playSound(EFFECT_SOUNDS[cardEffectValue]);
+  }, [cardEffectKey, cardEffectValue]);
+
+  const chatTimers = useRef(new Map<string, ReturnType<typeof setTimeout>>());
+  useEffect(() => {
+    const timers = chatTimers.current;
+    return () => timers.forEach((id) => clearTimeout(id));
+  }, []);
+
+  useEffect(() => {
+    if (!chat) return;
+    const { playerId, text, key } = chat;
+    setOpponentChat((c) => ({ ...c, [playerId]: { text, key } }));
+    const sound = CHAT_SOUNDS[text];
+    if (sound && !mutedRef.current) playSound(sound);
+    clearTimeout(chatTimers.current.get(playerId));
+    chatTimers.current.set(
+      playerId,
+      setTimeout(() => {
+        chatTimers.current.delete(playerId);
+        setOpponentChat((c) => {
+          const next = { ...c };
+          delete next[playerId];
+          return next;
+        });
+      }, CHAT_DURATION_MS),
+    );
+  }, [chat]);
 
   const dealtTotal = dealtPerSeat.reduce((a, b) => a + b, 0);
   useEffect(() => {
@@ -267,6 +358,7 @@ const GameScreen = ({
 
   const mustDraw =
     view.isYourTurn &&
+    !autoPlayed &&
     pendingDraw !== null &&
     !canChallenge &&
     playableCardIds.size === 0;
@@ -286,13 +378,8 @@ const GameScreen = ({
       ? 'You'
       : (bots.find((b) => b.id === playerId)?.name ?? 'Someone');
 
-  const winnerName = (() => {
-    if (view.status === 'finished') {
-      if (view.winningTeam !== null) {
-        return view.myTeam === view.winningTeam ? 'Your team' : 'Enemy team';
-      }
-      return nameOf(view.winnerId);
-    }
+  const winnerId = (() => {
+    if (view.status === 'finished') return view.winnerId;
     if (!expired) return null;
 
     const seats = [
@@ -302,9 +389,24 @@ const GameScreen = ({
         ? [{ id: view.partner.id, count: view.partner.hand.length }]
         : []),
     ];
-    const winner = seats.reduce((a, b) => (b.count < a.count ? b : a));
-    return nameOf(winner.id);
+    return seats.reduce((a, b) => (b.count < a.count ? b : a)).id;
   })();
+
+  const winnerName = (() => {
+    if (view.status === 'finished' && view.winningTeam !== null) {
+      return view.myTeam === view.winningTeam ? 'Your team' : 'Enemy team';
+    }
+    return winnerId ? nameOf(winnerId) : null;
+  })();
+
+  const winnerBot = bots.find((b) => b.id === winnerId);
+  const winnerAvatar =
+    winnerId === humanId
+      ? { avatarId: user.avatarId, image: user.customProfileImage }
+      : {
+          avatarId: winnerBot?.avatarId ?? AVATARS[0]!.id,
+          image: winnerBot?.image ?? null,
+        };
 
   const handleCardClick = (card: EngineCard) => {
     if (gameOver || dealing) return;
@@ -328,13 +430,6 @@ const GameScreen = ({
     handleCardClick(card);
   };
 
-  const handleRestart = () => {
-    restart();
-    setDealing(true);
-    setSecondsLeft(totalGameTime ?? 0);
-    setGameCount((c) => c + 1);
-  };
-
   const seatFor = (seat: {
     bot: { id: string; name: string; avatarId: number; image?: string | null };
   }) => ({
@@ -343,6 +438,22 @@ const GameScreen = ({
     image: seat.bot.image,
     active: view.currentPlayerId === seat.bot.id && !gameOver,
   });
+
+  const opponentBubble = (playerId: string, className: string) => {
+    const entry = opponentChat[playerId];
+    if (!entry) return null;
+    return (
+      <motion.div
+        key={entry.key}
+        initial={reducedMotion ? false : { scale: 0.6, opacity: 0, y: 10 }}
+        animate={{ scale: 1, opacity: 1, y: 0 }}
+        exit={{ opacity: 0 }}
+        className={className}
+      >
+        <ChatBubble text={entry.text} className="whitespace-nowrap" />
+      </motion.div>
+    );
+  };
 
   const handSize = view.hand.length;
 
@@ -449,19 +560,8 @@ const GameScreen = ({
           <div className="absolute right-[3%] top-[3%] z-30">
             <SettingsButton
               className="size-11!"
-              onClick={() => setSettingsOpen((o) => !o)}
+              onClick={() => openSheet('settings')}
             />
-            {settingsOpen && (
-              <div className="absolute right-0 top-full mt-2 flex items-center gap-2 rounded-2xl border-2 border-[#2b7fd0] bg-white/95 p-2 shadow-lg">
-                <SpeakerButton
-                  muted={muted}
-                  onToggle={() => setMuted((m) => !m)}
-                />
-                <span className="whitespace-nowrap pr-2 text-sm font-black text-[#1769d6]">
-                  {muted ? 'Sound off' : 'Sound on'}
-                </span>
-              </div>
-            )}
           </div>
 
           <div data-draw-deck className="absolute left-[30%] top-[10%]">
@@ -490,6 +590,12 @@ const GameScreen = ({
                 timer={timerFor(topSeat.bot.id)}
                 className="absolute left-[39%] top-[2%] z-10"
               />
+              <AnimatePresence>
+                {opponentBubble(
+                  topSeat.bot.id,
+                  'absolute left-[37%] top-[15%] z-20',
+                )}
+              </AnimatePresence>
               <div
                 data-deal-seat="top"
                 className="absolute left-[50%] top-[10%]"
@@ -516,6 +622,12 @@ const GameScreen = ({
                 timer={timerFor(leftSeat.bot.id)}
                 className="absolute left-[5%] top-[38%] z-10"
               />
+              <AnimatePresence>
+                {opponentBubble(
+                  leftSeat.bot.id,
+                  'absolute left-[17%] top-[30%] z-20',
+                )}
+              </AnimatePresence>
               <div
                 data-deal-seat="left"
                 className="absolute left-[20%] top-[40%]"
@@ -535,6 +647,12 @@ const GameScreen = ({
                 timer={timerFor(rightSeat.bot.id)}
                 className="absolute right-[5%] top-[38%] z-10"
               />
+              <AnimatePresence>
+                {opponentBubble(
+                  rightSeat.bot.id,
+                  'absolute right-[17%] top-[30%] z-20',
+                )}
+              </AnimatePresence>
               <div
                 data-deal-seat="right"
                 className="absolute right-[20%] top-[40%]"
@@ -566,6 +684,7 @@ const GameScreen = ({
 
           <div className="absolute left-1/2 top-[64%] flex -translate-x-1/2 flex-col items-center gap-2">
             {view.isYourTurn &&
+              !autoPlayed &&
               !gameOver &&
               !dealing &&
               (pendingDraw || canChallenge || canPass) && (
@@ -661,7 +780,7 @@ const GameScreen = ({
             <AnimatePresence>
               {chatMessage && (
                 <motion.div
-                  key={chatMessage}
+                  key={chatMessageKey}
                   initial={
                     reducedMotion ? false : { scale: 0.6, opacity: 0, y: 10 }
                   }
@@ -696,7 +815,11 @@ const GameScreen = ({
                     type="button"
                     onClick={() => {
                       setChatMessage(msg);
+                      setChatMessageKey((k) => k + 1);
                       setChatOpen(false);
+                      sendChat(msg);
+                      const sound = CHAT_SOUNDS[msg];
+                      if (sound && !muted) playSound(sound);
                     }}
                     className="cursor-pointer whitespace-nowrap rounded-xl px-3 py-1 text-left text-sm font-black text-[#1769d6] hover:bg-[#dff1ff]"
                   >
@@ -709,13 +832,42 @@ const GameScreen = ({
 
           <CallUnoButton
             called={unoCalled}
-            onClick={callUno}
+            onClick={() => {
+              callUno();
+              if (!muted) playSound('uno');
+            }}
             disabled={
-              !view.isYourTurn || gameOver || handSize !== 2 || unoCalled
+              !view.isYourTurn ||
+              autoPlayed ||
+              gameOver ||
+              handSize !== 2 ||
+              unoCalled
             }
             className="absolute bottom-[4%] right-[10%] z-20"
           />
         </div>
+
+        <AnimatePresence>
+          {autoPlayed && !gameOver && (
+            <motion.div
+              initial={reducedMotion ? false : { y: -20, opacity: 0 }}
+              animate={{ y: 0, opacity: 1 }}
+              exit={{ y: -20, opacity: 0 }}
+              className="absolute left-1/2 top-[30%] z-40 flex -translate-x-1/2 flex-col items-center gap-2 rounded-2xl border-2 border-[#0e4a9e] bg-linear-to-b from-[#4fb0ff] to-[#1769d6] px-6 py-3 shadow-[0_4px_10px_rgba(0,0,0,0.35)]"
+              role="status"
+            >
+              <span className="whitespace-nowrap font-display text-lg font-black uppercase italic text-white [text-shadow:0_2px_0_rgba(0,0,0,0.35)]">
+                Played by Computer
+              </span>
+              <TextButton
+                className="h-9 min-w-24 text-sm"
+                onClick={resumeControl}
+              >
+                Cancel
+              </TextButton>
+            </motion.div>
+          )}
+        </AnimatePresence>
 
         {wildCardId && (
           <ColorPicker
@@ -732,8 +884,13 @@ const GameScreen = ({
 
         {gameOver && winnerName && !hideGameOver && (
           <GameOverModal
+            won={
+              view.winningTeam !== null
+                ? view.myTeam === view.winningTeam
+                : view.winnerId === humanId
+            }
             winnerName={winnerName}
-            onRestart={handleRestart}
+            winnerAvatar={winnerAvatar}
             onHome={() => router.push('/menu')}
           />
         )}

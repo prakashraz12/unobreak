@@ -62,54 +62,16 @@ export const PlayerTile = ({
   className,
 }: PlayerTileProps) => (
   <div className={`flex flex-col items-center ${className ?? ''}`}>
-    <div className="relative">
-      {timer && (
-        <>
-          <svg
-            viewBox="0 0 104 104"
-            className="pointer-events-none absolute -inset-2 overflow-visible"
-            aria-hidden="true"
-          >
-            <rect
-              x={3}
-              y={3}
-              width={98}
-              height={98}
-              rx={26}
-              fill="none"
-              stroke="rgba(255,255,255,0.35)"
-              strokeWidth={5}
-            />
-            <rect
-              x={3}
-              y={3}
-              width={98}
-              height={98}
-              rx={26}
-              fill="none"
-              stroke={timer.seconds <= 5 ? '#ff3b30' : '#ff9a1f'}
-              strokeWidth={timer.seconds <= 5 ? 8 : 5}
-              strokeLinecap="round"
-              pathLength={1}
-              strokeDasharray="1"
-              strokeDashoffset={1 - timer.fraction}
-            />
-          </svg>
-          <span
-            className={`absolute -bottom-2 -left-2 z-10 flex size-7 items-center justify-center rounded-xl border-2 border-white text-sm font-black text-white shadow ${
-              timer.seconds <= 5 ? 'animate-pulse bg-[#ff3b30]' : 'bg-[#ff9a1f]'
-            }`}
-            aria-label={`${timer.seconds} seconds left`}
-          >
-            {timer.seconds}
-          </span>
-        </>
-      )}
+    <div
+      className="relative"
+      aria-label={timer ? `${timer.seconds} seconds left` : undefined}
+    >
       <AvatarFrame
         className={`size-[clamp(48px,7vw,84px)] rounded-[20%] transition-shadow ${
           active ? 'ring-4 ring-[#ffd61f] shadow-[0_0_18px_#ffd61f]' : ''
         }`}
         windowStyle={{ background: avatar.background }}
+        progress={timer?.fraction}
       >
         {image ? (
           <img
@@ -127,7 +89,7 @@ export const PlayerTile = ({
       </AvatarFrame>
     </div>
     <div
-      className={`-mt-1 flex max-w-[clamp(96px,12vw,150px)] items-center gap-1 rounded-xl border-2 py-0.5 pl-0.5 pr-3 shadow-[0_3px_5px_rgba(0,0,0,0.3)] ${
+      className={`mt-[calc(clamp(48px,7vw,84px)*0.28)] flex max-w-[clamp(96px,12vw,150px)] items-center gap-1 rounded-xl border-2 py-0.5 pl-0.5 pr-3 shadow-[0_3px_5px_rgba(0,0,0,0.3)] ${
         active
           ? 'border-[#8f1a0a] bg-linear-to-b from-[#ff8a3a] to-[#e3302b]'
           : 'border-[#0e4a9e] bg-linear-to-b from-[#4fb0ff] to-[#1769d6]'

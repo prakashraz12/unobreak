@@ -1,17 +1,22 @@
-import type { CSSProperties, ReactNode } from 'react';
+import { Fragment, type CSSProperties, type ReactNode } from 'react';
 import { cn } from '../../lib/utils';
+
+const TIMER_PATH =
+  'M200 64 H264 A40 40 0 0 1 304 104 V236 A40 40 0 0 1 264 276 H136 A40 40 0 0 1 96 236 V104 A40 40 0 0 1 136 64 Z';
 
 const AvatarFrame = ({
   children,
   className,
   windowClassName,
   windowStyle,
+  progress,
 }: {
   children: ReactNode;
   className?: string;
 
   windowClassName?: string;
   windowStyle?: CSSProperties;
+  progress?: number | null;
 }) => (
   <div className={cn('relative aspect-square w-20 shrink-0', className)}>
     <svg
@@ -86,10 +91,24 @@ const AvatarFrame = ({
             fill="#fff"
             transform="rotate(30 26 38)"
           />
-          <polygon
+          <text
+            x="26"
+            y="38"
+            transform="rotate(-22 26 38)"
+            textAnchor="middle"
+            dominantBaseline="central"
+            fontFamily="'Arial Black','Helvetica Neue',Arial,sans-serif"
+            fontSize="13"
+            fontWeight="900"
+            fontStyle="italic"
             fill="currentColor"
-            points="26,29 28.1,35 34.5,35.2 29.4,39 31.3,45.2 26,41.5 20.7,45.2 22.6,39 17.5,35.2 23.9,35"
-          />
+            stroke="#222"
+            strokeWidth="2"
+            strokeLinejoin="round"
+            paintOrder="stroke"
+          >
+            UNO
+          </text>
         </g>
         <g id="af-glove">
           <circle
@@ -155,28 +174,55 @@ const AvatarFrame = ({
         strokeWidth="3"
       />
 
-      <path
-        d="M150 62 C78 112 92 232 188 268 C236 284 296 266 306 228"
-        fill="none"
-        stroke="#6e0d12"
-        strokeWidth="30"
-        strokeLinecap="round"
-      />
-      <path
-        d="M150 62 C78 112 92 232 188 268 C236 284 296 266 306 228"
-        fill="none"
-        stroke="url(#af-red)"
-        strokeWidth="22"
-        strokeLinecap="round"
-      />
-      <path
-        d="M146 70 C88 116 100 226 186 258"
-        fill="none"
-        stroke="#ff7c80"
-        strokeWidth="4"
-        strokeLinecap="round"
-        opacity="0.8"
-      />
+      {progress == null ? (
+        <Fragment>
+          <path
+            d="M150 62 C78 112 92 232 188 268 C236 284 296 266 306 228"
+            fill="none"
+            stroke="#6e0d12"
+            strokeWidth="30"
+            strokeLinecap="round"
+          />
+          <path
+            d="M150 62 C78 112 92 232 188 268 C236 284 296 266 306 228"
+            fill="none"
+            stroke="url(#af-red)"
+            strokeWidth="22"
+            strokeLinecap="round"
+          />
+          <path
+            d="M146 70 C88 116 100 226 186 258"
+            fill="none"
+            stroke="#ff7c80"
+            strokeWidth="4"
+            strokeLinecap="round"
+            opacity="0.8"
+          />
+        </Fragment>
+      ) : (
+        progress > 0 &&
+        (
+          [
+            ['#6e0d12', 26],
+            ['url(#af-red)', 18],
+            ['#ff7c80', 3],
+          ] as const
+        ).map(([stroke, width]) => (
+          <path
+            key={width}
+            d={TIMER_PATH}
+            fill="none"
+            stroke={stroke}
+            strokeWidth={width}
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            opacity={width === 3 ? 0.8 : 1}
+            pathLength={1}
+            strokeDasharray="1 1"
+            strokeDashoffset={1 - Math.min(1, progress)}
+          />
+        ))
+      )}
 
       <g>
         <circle
