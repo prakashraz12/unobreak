@@ -47,7 +47,7 @@ export const SheetProvider = ({ children }: { children: ReactNode }) => {
   const pendingCount =
     (friendRequests?.pendingCount ?? 0) + (friendRequests?.unreadTotal ?? 0);
   const pathname = usePathname();
-  const isLanding = pathname === '/';
+  const isLanding = pathname === '/' || pathname === '/auth';
 
   const openSheet = useCallback((id: SheetId) => setActiveSheet(id), []);
   const closeSheet = useCallback(() => setActiveSheet(null), []);
