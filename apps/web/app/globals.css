@@ -1,50 +1,137 @@
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
+@import 'tailwindcss';
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
-}
+@source '../../../packages/ui';
+
+@custom-variant dark (&:where(.dark, .dark *));
 
 html,
 body {
-  max-width: 100vw;
-  overflow-x: hidden;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
 }
 
-body {
-  color: var(--foreground);
-  background: var(--background);
-}
-
-* {
-  box-sizing: border-box;
-  padding: 0;
-  margin: 0;
-}
-
-a {
-  color: inherit;
-  text-decoration: none;
-}
-
-.imgDark {
+body::-webkit-scrollbar {
   display: none;
 }
 
-@media (prefers-color-scheme: dark) {
-  html {
-    color-scheme: dark;
-  }
+@theme inline {
+  --font-sans: var(--font-poppins), ui-sans-serif, system-ui, sans-serif;
+  --font-display:
+    var(--font-baloo-2), 'Arial Black', 'Helvetica Neue', Arial, sans-serif;
+  --font-mono:
+    var(--font-geist-mono), ui-monospace, SFMono-Regular, Menlo, monospace;
 
-  .imgLight {
-    display: none;
+  --animate-fade-in: fade-in 0.2s ease-out;
+  --animate-fade-out: fade-out 0.15s ease-in;
+  --animate-sheet-in-right: sheet-in-right 0.3s cubic-bezier(0.32, 0.72, 0, 1);
+  --animate-sheet-out-right: sheet-out-right 0.2s ease-in;
+  --animate-sheet-in-left: sheet-in-left 0.3s cubic-bezier(0.32, 0.72, 0, 1);
+  --animate-sheet-out-left: sheet-out-left 0.2s ease-in;
+  --animate-sheet-in-top: sheet-in-top 0.3s cubic-bezier(0.32, 0.72, 0, 1);
+  --animate-sheet-out-top: sheet-out-top 0.2s ease-in;
+  --animate-sheet-in-bottom: sheet-in-bottom 0.3s cubic-bezier(0.32, 0.72, 0, 1);
+  --animate-sheet-out-bottom: sheet-out-bottom 0.2s ease-in;
+  --animate-zoom-in: zoom-in 0.25s cubic-bezier(0.32, 0.72, 0, 1);
+  --animate-zoom-out: zoom-out 0.15s ease-in;
+}
+
+@keyframes fade-in {
+  from {
+    opacity: 0;
   }
-  .imgDark {
-    display: unset;
+  to {
+    opacity: 1;
+  }
+}
+@keyframes fade-out {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
+  }
+}
+@keyframes sheet-in-right {
+  from {
+    transform: translateX(100%);
+  }
+  to {
+    transform: translateX(0);
+  }
+}
+@keyframes sheet-out-right {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(100%);
+  }
+}
+@keyframes sheet-in-left {
+  from {
+    transform: translateX(-100%);
+  }
+  to {
+    transform: translateX(0);
+  }
+}
+@keyframes sheet-out-left {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(-100%);
+  }
+}
+@keyframes sheet-in-top {
+  from {
+    transform: translateY(-100%);
+  }
+  to {
+    transform: translateY(0);
+  }
+}
+@keyframes sheet-out-top {
+  from {
+    transform: translateY(0);
+  }
+  to {
+    transform: translateY(-100%);
+  }
+}
+@keyframes sheet-in-bottom {
+  from {
+    transform: translateY(100%);
+  }
+  to {
+    transform: translateY(0);
+  }
+}
+@keyframes sheet-out-bottom {
+  from {
+    transform: translateY(0);
+  }
+  to {
+    transform: translateY(100%);
+  }
+}
+@keyframes zoom-in {
+  from {
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(0.85);
+  }
+  to {
+    opacity: 1;
+    transform: translate(-50%, -50%) scale(1);
+  }
+}
+@keyframes zoom-out {
+  from {
+    opacity: 1;
+    transform: translate(-50%, -50%) scale(1);
+  }
+  to {
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(0.85);
   }
 }

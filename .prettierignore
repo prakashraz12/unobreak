@@ -1,0 +1,9 @@
+pnpm-lock.yaml
+.next
+.turbo
+dist
+build
+out
+coverage
+*.tsbuildinfo
+next-env.d.ts
