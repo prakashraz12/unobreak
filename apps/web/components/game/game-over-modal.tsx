@@ -186,7 +186,7 @@ const Trumpet = ({
 );
 
 const Ribbon = () => (
-  <svg viewBox="0 0 520 64" className="h-[64px] w-[520px]" aria-hidden="true">
+  <svg viewBox="0 0 520 64" className="h-16 w-130" aria-hidden="true">
     <path
       d="M42 20 L8 32 L20 42 L8 56 L42 58 Z"
       fill="#b8263f"
@@ -293,8 +293,8 @@ const GameOverModal = ({
         )}
       </div>
 
-      <div className="relative w-[520px] max-w-none scale-[0.62] min-[420px]:scale-75 min-[560px]:scale-90 min-[700px]:scale-100">
-        <div className="relative h-[210px]">
+      <div className="relative w-130 max-w-none scale-[0.62] min-[420px]:scale-75 min-[560px]:scale-90 min-[700px]:scale-100">
+        <div className="relative h-52.5">
           <Trumpet
             id="tr-o-l"
             className="left-[calc(50%-187px)] top-[43px]"
@@ -322,9 +322,9 @@ const GameOverModal = ({
             reduced={reducedMotion ?? false}
           />
 
-          <LaurelBranch className="absolute left-[calc(50%-85px)] top-0 z-[5] h-[105px] w-20" />
+          <LaurelBranch className="absolute left-[calc(50%-85px)] top-0 z-5 h-[105px] w-20" />
           <LaurelBranch
-            className="absolute right-[calc(50%-85px)] top-0 z-[5] h-[105px] w-20"
+            className="absolute right-[calc(50%-85px)] top-0 z-5 h-[105px] w-20"
             mirrored
           />
 
@@ -334,7 +334,7 @@ const GameOverModal = ({
             animate={{ scale: 1, opacity: 1 }}
             transition={{ type: 'spring', stiffness: 260, damping: 16 }}
           >
-            <div className="relative flex size-24 items-center justify-center rounded-[14px] bg-white p-[7px] shadow-[0_6px_14px_rgba(0,0,0,0.35)]">
+            <div className="relative flex size-24 items-center justify-center rounded-[14px] bg-white p-1.75 shadow-[0_6px_14px_rgba(0,0,0,0.35)]">
               <div className="relative size-full overflow-hidden rounded-[9px] bg-linear-to-b from-[#6aa8f5] to-[#2f62cf]">
                 {winnerAvatar.image ? (
                   <img
@@ -362,7 +362,7 @@ const GameOverModal = ({
           </motion.div>
 
           <motion.div
-            className="absolute left-1/2 top-[104px] z-20 -translate-x-1/2"
+            className="absolute left-1/2 top-26 z-20 -translate-x-1/2"
             initial={reducedMotion ? false : { scaleX: 0 }}
             animate={{ scaleX: 1 }}
             transition={{ delay: 0.15, duration: 0.3, ease: 'easeOut' }}
@@ -388,11 +388,11 @@ const GameOverModal = ({
             Returning home in {secondsLeft}s
           </p>
 
-          <div className="mt-[46px] flex items-center">
+          <div className="mt-11.5 flex items-center">
             <button
               type="button"
               onClick={onHome}
-              className="relative h-[45px] w-[126px] overflow-hidden isolate rounded-xl border-2 border-[#2b8f12] bg-linear-to-b from-[#9cf24f] to-[#43c21f] font-display text-[22px] font-black text-white shadow-[inset_0_-4px_0_#2b8f12,0_4px_10px_rgba(0,0,0,0.35)] outline-none transition-transform duration-150 [-webkit-text-stroke:3px_#1e6b0c] [paint-order:stroke_fill] before:absolute before:inset-x-0 before:top-0 before:h-1/2 before:bg-linear-to-b before:-z-10 before:from-white/50 before:to-white/0 hover:scale-105 active:translate-y-px"
+              className="relative h-11.25 w-31.5 overflow-hidden isolate rounded-xl border-2 border-[#2b8f12] bg-linear-to-b from-[#9cf24f] to-[#43c21f] font-display text-[22px] font-black text-white shadow-[inset_0_-4px_0_#2b8f12,0_4px_10px_rgba(0,0,0,0.35)] outline-none transition-transform duration-150 [-webkit-text-stroke:3px_#1e6b0c] [paint-order:stroke_fill] before:absolute before:inset-x-0 before:top-0 before:h-1/2 before:bg-linear-to-b before:-z-10 before:from-white/50 before:to-white/0 hover:scale-105 active:translate-y-px"
             >
               Return
             </button>
