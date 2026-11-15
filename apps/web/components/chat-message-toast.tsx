@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
 import { useSheet } from '../providers/sheet-provider';
-import { useFriendRequests } from '../providers/friend-request-provider';
+import { useOptionalFriendRequests } from '../providers/friend-request-provider';
 import type { FriendEntryDto } from '../services/types-schemas';
 import { postMessage, type IncomingChatMessage } from '../hooks/use-chat';
 import { usePopUpToaster } from './pop-up-toaster';
@@ -135,8 +135,10 @@ const ChatMessageToast = ({
 
 const ChatMessageToaster = () => {
   const { openSheet } = useSheet();
+  const requests = useOptionalFriendRequests();
+  if (!requests) return null;
   const { latestMessage, friends, openChat, markRead, dismissMessage } =
-    useFriendRequests();
+    requests;
   const friend = latestMessage
     ? friends.find((f) => f.user.userId === latestMessage.from.userId)
     : undefined;
