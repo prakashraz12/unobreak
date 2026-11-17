@@ -34,8 +34,8 @@ jobs:
       - name: Deploy to cPanel
         uses: SamKirkland/FTP-Deploy-Action@v4.3.4
         with:
-          server: ftp.prakashraz.com
-          username: unobreak.prakashraz.com
-          password: QKkmrP7B2NMjK?%q
+          server: api.unobreak.prakashraz.com
+          username: ${{ secrets.FTP_USERNAME }}
+          password: ${{ secrets.FTP_PASSWORD }}
           local-dir: ./deploy/backend/
-          server-dir: prakashraz.com/unobreak/
+          server-dir: /unobreak/
