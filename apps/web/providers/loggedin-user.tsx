@@ -1,6 +1,6 @@
 'use client';
 
-import { createContext, useContext, type ReactNode } from 'react';
+import { createContext, useContext, useEffect, type ReactNode } from 'react';
 import { skipToken } from '@tanstack/react-query';
 import { SocketProvider, useSocketEvent } from '@repo/socket';
 import useStorage from '../hooks/use-storage';
@@ -36,10 +36,20 @@ const RealtimeNotifications = () => {
 };
 
 export const LoggedInUserProvider = ({ children }: { children: ReactNode }) => {
-  const [accessToken] = useStorage<string | null>(ACCESS_TOKEN, null);
-  const { data: user, isLoading } = useUserControllerMe(
-    accessToken ? {} : skipToken,
+  const [accessToken, , removeAccessToken] = useStorage<string | null>(
+    ACCESS_TOKEN,
+    null,
   );
+  const {
+    data: user,
+    isLoading,
+    error,
+  } = useUserControllerMe(accessToken ? {} : skipToken);
+
+  useEffect(() => {
+    const status = (error as { statusCode?: number } | null)?.statusCode;
+    if (status === 401 || status === 404) removeAccessToken();
+  }, [error, removeAccessToken]);
 
   if (isLoading || !user) return <FullScreenLoader />;
 
