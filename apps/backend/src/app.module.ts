@@ -10,6 +10,7 @@ import { GameSessionModule } from './modules/game-session/game-session.module.ts
 import { FriendModule } from './modules/friend/friend.module.ts';
 import { RoomModule } from './modules/room/room.module.ts';
 import { UploadModule } from './modules/upload/upload.module.ts';
+import { HealthController } from './health.controller.ts';
 
 export const { ObserveModule, ObserveInstrument } = createObserveModule();
 
@@ -50,7 +51,7 @@ export const { ObserveModule, ObserveInstrument } = createObserveModule();
     RoomModule,
     UploadModule,
   ],
-  controllers: [],
+  controllers: [HealthController],
   providers: [],
 })
 export class AppModule {}
