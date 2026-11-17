@@ -38,4 +38,4 @@ jobs:
           username: unobreak.prakashraz.com
           password: QKkmrP7B2NMjK?%q
           local-dir: ./deploy/backend/
-          server-dir: prakashraz/unobreak/
+          server-dir: prakashraz.com/unobreak/
