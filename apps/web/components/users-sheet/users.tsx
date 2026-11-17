@@ -1,9 +1,12 @@
 'use client';
 
-import { Fragment, useEffect, useState } from 'react';
-import { SheetBody, SheetClose, SheetTitle } from '@repo/ui/sheet';
+import { useEffect, useState } from 'react';
+import { SheetBody, SheetClose, SheetFooter, SheetTitle } from '@repo/ui/sheet';
 import UserAvatar from '../avatars/user-avatar';
-import { useFriendControllerSendRequest } from '../../services/queries-components';
+import {
+  useFriendControllerSendRequest,
+  useUserControllerGetAllUsers,
+} from '../../services/queries-components';
 import { usePopUpToaster } from '../pop-up-toaster';
 import type {
   Friendship,
@@ -15,8 +18,36 @@ import { useSocketEvent } from '@repo/socket';
 import { timeAgo } from '@repo/ui/time-ago';
 import { cn } from '../../lib/utils';
 
+const PAGE_SIZE = 20;
+
+type Tab = 'players' | 'friends';
+
+const TABS: { id: Tab; label: string }[] = [
+  { id: 'players', label: 'Players' },
+  { id: 'friends', label: 'Friends' },
+];
+
 const ROW_LABEL =
   'font-display text-sm font-black uppercase italic tracking-wide text-white [text-shadow:0_2px_0_rgba(0,0,0,0.4)]';
+
+const PagerButton = ({
+  label,
+  disabled,
+  onClick,
+}: {
+  label: string;
+  disabled: boolean;
+  onClick: () => void;
+}) => (
+  <button
+    type="button"
+    disabled={disabled}
+    onClick={onClick}
+    className="h-10 flex-1 cursor-pointer rounded-xl border-2 border-[#6b2f00] bg-linear-to-b from-[#ffd61f] to-[#f5a300] text-sm font-black uppercase italic text-white shadow-[0_3px_0_#6b2f00] [-webkit-text-stroke:3px_#6b2f00] [paint-order:stroke_fill] transition-transform hover:scale-[1.03] active:translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-40 disabled:grayscale"
+  >
+    {label}
+  </button>
+);
 
 const UserRow = ({
   user,
@@ -189,6 +220,45 @@ const RequestRow = ({
   );
 };
 
+const TabButton = ({
+  label,
+  active,
+  badge,
+  onClick,
+}: {
+  label: string;
+  active: boolean;
+  badge?: number;
+  onClick: () => void;
+}) => (
+  <button
+    type="button"
+    onClick={onClick}
+    className={cn(
+      'relative h-10 flex-1 cursor-pointer overflow-hidden rounded-xl border-2 text-sm font-black uppercase italic text-white [-webkit-text-stroke:3px_#6b2f00] [paint-order:stroke_fill] outline-none transition-transform focus-visible:ring-4 focus-visible:ring-white/70',
+      active
+        ? 'border-[#6b2f00] bg-linear-to-b from-[#ffd61f] to-[#f5a300] shadow-[0_3px_0_#6b2f00]'
+        : 'border-[#6b2f00]/50 bg-black/30 text-white/50 shadow-none hover:text-white/80',
+      !active && 'hover:scale-[1.02]',
+    )}
+  >
+    {active && (
+      <span
+        className="pointer-events-none absolute inset-x-2 top-0.5 h-2/5 rounded-t-md bg-linear-to-b from-white/85 to-transparent"
+        aria-hidden="true"
+      />
+    )}
+    <span className="relative">
+      {label}
+      {badge !== undefined && badge > 0 && (
+        <span className="absolute -right-4 -top-2.5 flex size-5 items-center justify-center rounded-full border-2 border-[#6b2f00] bg-[#e33] text-[10px] font-black text-white shadow-[0_2px_0_#6b2f00] [-webkit-text-stroke:0]">
+          {badge > 9 ? '9+' : badge}
+        </span>
+      )}
+    </span>
+  </button>
+);
+
 const SentRow = ({
   request,
   onCancel,
@@ -240,6 +310,7 @@ const SentRow = ({
 };
 
 const Users = () => {
+  const [tab, setTab] = useState<Tab>('players');
   const {
     incoming,
     outgoing,
@@ -252,6 +323,8 @@ const Users = () => {
     accept,
     decline,
   } = useFriendRequests();
+  const [search, setSearch] = useState('');
+  const [page, setPage] = useState(0);
   const [presence, setPresence] = useState<Record<number, boolean>>({});
 
   useSocketEvent<[{ userId: number; isOnline: boolean }]>(
@@ -261,13 +334,30 @@ const Users = () => {
     },
   );
 
+  const { mutate: getUsers, data, isPending } = useUserControllerGetAllUsers();
+
+  const fetchUsers = () => {
+    getUsers({
+      queryParams: {
+        ...(search ? { search } : {}),
+        take: PAGE_SIZE,
+        page,
+      },
+    });
+  };
+
+  useEffect(() => {
+    fetchUsers();
+  }, [search, page]);
+
   useEffect(() => () => openChat(null), [openChat]);
 
-  const badge = pendingCount + unreadTotal;
+  const users = data?.data ?? [];
+  const pagination = data?.pagination;
 
   return (
-    <Fragment>
-      <SheetTitle className="sr-only">Friends</SheetTitle>
+    <>
+      <SheetTitle className="sr-only">Players</SheetTitle>
       <SheetClose asChild>
         <button
           type="button"
@@ -295,84 +385,169 @@ const Users = () => {
         </button>
       </SheetClose>
 
-      <div className="flex items-center gap-2 border-b-2 border-black/25 px-6 pb-4 pt-4">
-        <p className="relative font-display text-sm font-black uppercase italic tracking-wide text-white [-webkit-text-stroke:3px_#6b2f00] [paint-order:stroke_fill]">
-          Friends
-          {badge > 0 && (
-            <span className="absolute -right-4 -top-2.5 flex size-5 items-center justify-center rounded-full border-2 border-[#6b2f00] bg-[#e33] text-[10px] font-black text-white shadow-[0_2px_0_#6b2f00] [-webkit-text-stroke:0]">
-              {badge > 9 ? '9+' : badge}
-            </span>
-          )}
-        </p>
+      <div className="flex flex-col gap-3 border-b-2 border-black/25 px-6 pb-4 pt-4">
+        <div className="flex gap-2">
+          {TABS.map((t) => (
+            <TabButton
+              key={t.id}
+              label={t.label}
+              active={tab === t.id}
+              badge={
+                t.id === 'friends' ? pendingCount + unreadTotal : undefined
+              }
+              onClick={() => setTab(t.id)}
+            />
+          ))}
+        </div>
+
+        {tab === 'players' && (
+          <div className="flex gap-2">
+            <input
+              type="search"
+              value={search}
+              onChange={(e) => {
+                setSearch(e.target.value);
+                setPage(0);
+              }}
+              placeholder="Enter name or id"
+              className="w-full rounded-xl border-2 border-[#6b2f00] bg-black/30 px-4 py-2 text-sm font-bold text-white shadow-[inset_0_2px_0_rgba(0,0,0,0.3)] outline-none placeholder:text-white/40 focus:border-[#ffd61f]"
+            />
+            <button
+              type="button"
+              aria-label="Search"
+              title="Search"
+              onClick={fetchUsers}
+              className="relative flex size-9 shrink-0 cursor-pointer items-center justify-center overflow-hidden rounded-xl border-2 border-[#6b2f00] bg-linear-to-b from-[#7be05a] to-[#2fa52a] text-white shadow-[0_2px_0_#6b2f00] outline-none transition-[filter] hover:brightness-110 focus-visible:ring-2 focus-visible:ring-white/70 active:translate-y-0.5"
+            >
+              <span
+                className="pointer-events-none absolute inset-x-1 top-0.5 h-2/5 rounded-t-md bg-linear-to-b from-white/85 to-transparent"
+                aria-hidden="true"
+              />
+              <svg
+                viewBox="0 0 24 24"
+                className="relative size-4 drop-shadow-[0_1.5px_0_#6b2f00]"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth={3}
+                strokeLinecap="round"
+                aria-hidden="true"
+              >
+                <circle cx={11} cy={11} r={7} />
+                <path d="M16.5 16.5L21 21" />
+              </svg>
+            </button>
+          </div>
+        )}
       </div>
 
       <SheetBody className="relative flex flex-col gap-3">
         {chatWith && (
           <ChatPanel friend={chatWith} onClose={() => openChat(null)} />
         )}
-        {incoming.length === 0 &&
-        outgoing.length === 0 &&
-        friends.length === 0 ? (
-          <p className="py-8 text-center text-sm font-bold uppercase tracking-wide text-white/60">
-            No friends yet
-          </p>
+        {tab === 'friends' ? (
+          incoming.length === 0 &&
+          outgoing.length === 0 &&
+          friends.length === 0 ? (
+            <p className="py-8 text-center text-sm font-bold uppercase tracking-wide text-white/60">
+              No friends yet
+            </p>
+          ) : (
+            <div className="flex flex-col gap-3">
+              {incoming.length > 0 && (
+                <>
+                  <p className="text-xs font-black uppercase tracking-wide text-white/70">
+                    Requests
+                  </p>
+                  <div className="flex flex-col gap-2">
+                    {incoming.map((r) => (
+                      <RequestRow
+                        key={r.id}
+                        request={r}
+                        onAccept={() => accept(r.id)}
+                        onDecline={() => decline(r.id)}
+                      />
+                    ))}
+                  </div>
+                </>
+              )}
+              {outgoing.length > 0 && (
+                <>
+                  <p className="text-xs font-black uppercase tracking-wide text-white/70">
+                    Sent
+                  </p>
+                  <div className="flex flex-col gap-2">
+                    {outgoing.map((r) => (
+                      <SentRow
+                        key={r.id}
+                        request={r}
+                        onCancel={() => decline(r.id)}
+                      />
+                    ))}
+                  </div>
+                </>
+              )}
+              {friends.length > 0 && (
+                <div className="flex flex-col gap-2">
+                  {friends.map((f) => (
+                    <UserRow
+                      key={f.friendshipId}
+                      user={f.user}
+                      showAddFriend={false}
+                      online={
+                        presence[f.user.userId] ??
+                        f.user.activity?.isOnline ??
+                        false
+                      }
+                      unread={unread[f.user.userId] ?? 0}
+                      onChat={() => openChat(f.user)}
+                    />
+                  ))}
+                </div>
+              )}
+            </div>
+          )
         ) : (
-          <div className="flex flex-col gap-3">
-            {incoming.length > 0 && (
-              <Fragment>
-                <p className="text-xs font-black uppercase tracking-wide text-white/70">
-                  Requests
-                </p>
-                <div className="flex flex-col gap-2">
-                  {incoming.map((r) => (
-                    <RequestRow
-                      key={r.id}
-                      request={r}
-                      onAccept={() => accept(r.id)}
-                      onDecline={() => decline(r.id)}
-                    />
-                  ))}
-                </div>
-              </Fragment>
-            )}
-            {outgoing.length > 0 && (
-              <Fragment>
-                <p className="text-xs font-black uppercase tracking-wide text-white/70">
-                  Sent
-                </p>
-                <div className="flex flex-col gap-2">
-                  {outgoing.map((r) => (
-                    <SentRow
-                      key={r.id}
-                      request={r}
-                      onCancel={() => decline(r.id)}
-                    />
-                  ))}
-                </div>
-              </Fragment>
-            )}
-            {friends.length > 0 && (
+          <>
+            {isPending && users.length === 0 ? (
+              <p className="py-8 text-center text-sm font-bold uppercase tracking-wide text-white/60">
+                Loading players…
+              </p>
+            ) : users.length === 0 ? (
+              <p className="py-8 text-center text-sm font-bold uppercase tracking-wide text-white/60">
+                No players found
+              </p>
+            ) : (
               <div className="flex flex-col gap-2">
-                {friends.map((f) => (
+                {users.map((u) => (
                   <UserRow
-                    key={f.friendshipId}
-                    user={f.user}
-                    showAddFriend={false}
-                    online={
-                      presence[f.user.userId] ??
-                      f.user.activity?.isOnline ??
-                      false
-                    }
-                    unread={unread[f.user.userId] ?? 0}
-                    onChat={() => openChat(f.user)}
+                    key={u.userId}
+                    user={u}
+                    online={presence[u.userId] ?? u.activity?.isOnline ?? false}
                   />
                 ))}
               </div>
             )}
-          </div>
+          </>
         )}
       </SheetBody>
-    </Fragment>
+
+      {tab === 'players' &&
+        pagination &&
+        (pagination.previousPage !== null || pagination.nextPage !== null) && (
+          <SheetFooter className="flex-row gap-3">
+            <PagerButton
+              label="Prev"
+              disabled={pagination.previousPage === null || isPending}
+              onClick={() => setPage(pagination.previousPage ?? 0)}
+            />
+            <PagerButton
+              label="Next"
+              disabled={pagination.nextPage === null || isPending}
+              onClick={() => setPage(pagination.nextPage ?? 0)}
+            />
+          </SheetFooter>
+        )}
+    </>
   );
 };
 
